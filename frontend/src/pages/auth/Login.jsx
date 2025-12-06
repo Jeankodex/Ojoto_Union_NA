@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle, FaUser } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import logo from "../../assets/ojoto_union_logo.png";
@@ -57,18 +59,51 @@ const Login = () => {
     return null;
   };
 
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault();
+  // Inside the Login component, replace the handleLoginSubmit function:
+const { login } = useAuth();
+const navigate = useNavigate();
+
+const handleLoginSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+  
+  setIsSubmitting(true);
+  
+  try {
+    const credentials = {
+      emailOrUsername: formData.emailOrUsername,
+      password: formData.password
+    };
     
-    if (!validateForm()) return;
+    // Call the login API
+    const response = await login(credentials);
     
-    setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Handle successful login here
-    }, 1500);
-  };
+    // Success! Redirect based on user role or to home
+    if (response.user.role === 'admin') {
+      navigate('/admin/dashboard'); // You can create this route later
+    } else {
+      navigate('/');
+    }
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    setErrors({ 
+      general: error || 'Invalid email/username or password' 
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+// Add this error display after the password field:
+{errors.general && (
+  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+    <p className="text-red-600 text-sm flex items-center gap-2">
+      ⚠️ {errors.general}
+    </p>
+  </div>
+)}
 
   const handleForgotPasswordSubmit = async (e) => {
     e.preventDefault();

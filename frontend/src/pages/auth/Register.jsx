@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaPhone, FaLock, FaEye, FaEyeSlash, FaCheck, FaArrowLeft } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import logo from "../../assets/ojoto_union_logo.png";
@@ -27,27 +29,68 @@ const Register = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Handle successful registration here
-    }, 1500);
-  };
+ // Inside the Register component, replace the handleSubmit function:
+const { register } = useAuth();
+const navigate = useNavigate();
 
-  const passwordStrength = (password) => {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validate passwords match
+  if (formData.password !== formData.confirmPassword) {
+    alert('Passwords do not match');
+    return;
+  }
+  
+  if (!formData.agreeTerms) {
+    alert('You must agree to the terms and conditions');
+    return;
+  }
+
+  setIsSubmitting(true);
+  
+  try {
+    // Prepare data for backend
+    const userData = {
+      firstName: formData.firstName,
+      surname: formData.surname,
+      email: formData.email,
+      phone: formData.phone,
+      username: formData.username,
+      password: formData.password,
+      agreeTerms: formData.agreeTerms
+    };
+    
+    // Call the register API
+    const response = await register(userData);
+    
+    // Success! Redirect to home or dashboard
+    alert('Registration successful!');
+    navigate('/');
+    
+  } catch (error) {
+    // Handle error
+    console.error('Registration error:', error);
+    alert(error || 'Registration failed. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const strengthLabels = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
   const strengthColors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-blue-500", "bg-green-500"];
+
+  const passwordStrength = (password) => {
+  let score = 0;
+  if (!password) return 0;
+
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  return score; // 0–4
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center p-4">
