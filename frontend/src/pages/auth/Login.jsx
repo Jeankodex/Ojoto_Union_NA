@@ -83,7 +83,7 @@ const handleLoginSubmit = async (e) => {
     if (response.user.role === 'admin') {
       navigate('/admin/dashboard'); // You can create this route later
     } else {
-      navigate('/');
+      navigate('/dashboard');
     }
     
   } catch (error) {

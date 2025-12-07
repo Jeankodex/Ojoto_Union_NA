@@ -66,7 +66,7 @@ const handleSubmit = async (e) => {
     
     // Success! Redirect to home or dashboard
     alert('Registration successful!');
-    navigate('/');
+    navigate('/dashboard');
     
   } catch (error) {
     // Handle error
