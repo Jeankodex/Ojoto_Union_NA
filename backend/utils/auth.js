@@ -23,21 +23,23 @@ const comparePassword = async (password, hashedPassword) => {
 };
 
 // Verify token middleware
+
 const verifyToken = (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ message: 'No token provided' });
 
-    if (!token) {
-        return res.status(401).json({ error: 'No token, authorization denied' });
-    }
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+    if (!token) return res.status(401).json({ message: 'No token provided' });
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production');
-        req.userId = decoded.userId;
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(403).json({ message: 'Failed to authenticate token' });
+
+        console.log('🔹 JWT decoded payload:', decoded);
+        req.userId = decoded.userId; // <-- Must match your token payload
         next();
-    } catch (error) {
-        res.status(401).json({ error: 'Token is not valid' });
-    }
+    });
 };
+
 
 module.exports = {
     generateToken,

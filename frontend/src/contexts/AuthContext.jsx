@@ -1,4 +1,8 @@
+
+//AuthContext.jsx//
+
 import React, { createContext, useState, useContext } from 'react';
+import api from '../services/api'; // Add this import
 
 const AuthContext = createContext({});
 
@@ -12,31 +16,13 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // API base URL
-    const API_URL = 'http://localhost:5000/api';
-
     const register = async (userData) => {
         setLoading(true);
         setError(null);
         
         try {
-            console.log('Registering user:', userData);
+            const data = await api.auth.register(userData);
             
-            const response = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData)
-            });
-
-            const data = await response.json();
-            console.log('Registration response:', data);
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Registration failed');
-            }
-
             if (data.token && data.user) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
@@ -57,23 +43,8 @@ export const AuthProvider = ({ children }) => {
         setError(null);
         
         try {
-            console.log('Logging in:', credentials);
+            const data = await api.auth.login(credentials);
             
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(credentials)
-            });
-
-            const data = await response.json();
-            console.log('Login response:', data);
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Login failed');
-            }
-
             if (data.token && data.user) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
@@ -96,6 +67,12 @@ export const AuthProvider = ({ children }) => {
         window.location.href = '/login';
     };
 
+    const updateUser = (userData) => {
+        const updatedUser = { ...user, ...userData };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+    };
+
     const value = {
         user,
         loading,
@@ -103,6 +80,7 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
+        updateUser,
         isAuthenticated: !!localStorage.getItem('token')
     };
 

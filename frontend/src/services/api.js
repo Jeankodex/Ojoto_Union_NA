@@ -1,70 +1,125 @@
-import axios from 'axios';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Create axios instance
-const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
-    headers: {
+// Helper function for API calls
+const apiRequest = async (endpoint, options = {}) => {
+    const token = localStorage.getItem('token');
+    
+    const headers = {
         'Content-Type': 'application/json',
-    },
-});
-
-// Request interceptor to add token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+        ...options.headers
+    };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
     }
-);
-
-// Response interceptor for error handling
-api.interceptors.response.use(
-    (response) => response.data,
-    (error) => {
-        const message = error.response?.data?.error || error.message || 'An error occurred';
-        
-        // Auto logout on 401
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
-        
-        return Promise.reject(message);
+    
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: 'include'
+    });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'API request failed');
     }
-);
-
-// Auth service
-export const authService = {
-    register: async (userData) => {
-        return await api.post('/auth/register', userData);
-    },
     
-    login: async (credentials) => {
-        return await api.post('/auth/login', credentials);
-    },
-    
-    getCurrentUser: async () => {
-        return await api.get('/auth/me');
-    },
-    
-    isAuthenticated: () => {
-        return !!localStorage.getItem('token');
-    },
-    
-    getToken: () => {
-        return localStorage.getItem('token');
-    },
-    
-    getUser: () => {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
-    }
+    return response.json();
 };
 
-export default api;
+// Auth API
+export const authAPI = {
+    register: (userData) => apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+    }),
+    
+    login: (credentials) => apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials)
+    }),
+    
+    getCurrentUser: () => apiRequest('/auth/me')
+};
+
+// Profile API
+export const profileAPI = {
+    getProfile: () => apiRequest('/profile'),
+    
+    updateProfile: (profileData) => apiRequest('/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData)
+    }),
+    
+    getUser: (userId) => apiRequest(`/profile/${userId}`)
+};
+
+// ============ COMMUNITY API ============ //
+
+export const communityAPI = {
+    // POSTS
+    getPosts: (filters = {}) => {
+        const params = new URLSearchParams(filters).toString();
+        return apiRequest(`/community/posts?${params}`);
+    },
+    
+    createPost: (postData) => apiRequest('/community/posts', {
+        method: 'POST',
+        body: JSON.stringify(postData)
+    }),
+    
+    getPost: (postId) => apiRequest(`/community/posts/${postId}`),
+    
+    likePost: (postId) => apiRequest(`/community/posts/${postId}/like`, {
+        method: 'POST'
+    }),
+    
+    // COMMENTS
+    getComments: (postId) => apiRequest(`/community/posts/${postId}/comments`),
+    
+    addComment: (postId, content) => apiRequest(`/community/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content })
+    })
+};
+
+
+// ============ Q&A API ============ //
+export const qandaAPI = {
+    // QUESTIONS
+    getQuestions: (filters = {}) => {
+        const params = new URLSearchParams(filters).toString();
+        return apiRequest(`/qanda/questions?${params}`);
+    },
+    
+    createQuestion: (questionData) => apiRequest('/qanda/questions', {
+        method: 'POST',
+        body: JSON.stringify(questionData)
+    }),
+    
+    getQuestion: (questionId) => apiRequest(`/qanda/questions/${questionId}`),
+    
+    markQuestionResolved: (questionId) => apiRequest(`/qanda/questions/${questionId}/resolve`, {
+        method: 'POST'
+    }),
+    
+    // ANSWERS
+    getAnswers: (questionId) => apiRequest(`/qanda/questions/${questionId}/answers`),
+    
+    addAnswer: (questionId, content) => apiRequest(`/qanda/questions/${questionId}/answers`, {
+        method: 'POST',
+        body: JSON.stringify({ content })
+    }),
+    
+    markAnswerHelpful: (answerId) => apiRequest(`/qanda/answers/${answerId}/helpful`, {
+        method: 'POST'
+    })
+};
+
+
+export default {
+    auth: authAPI,
+    profile: profileAPI,
+    community: communityAPI,
+    qanda: qandaAPI  // Add this
+};

@@ -1,4 +1,4 @@
-
+//database/init.js
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
@@ -31,7 +31,7 @@ function initializeTables() {
             phone TEXT,
             profile_picture TEXT DEFAULT 'default.png',
             role TEXT DEFAULT 'member',
-            is_verified BOOLEAN DEFAULT 0,
+            is_verified BOOLEAN DEFAULT 1,
             is_online BOOLEAN DEFAULT 0,
             agree_terms BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -12,7 +12,6 @@ import MemberDetail from "./pages/members/MemberDetail";
 import EditProfile from "./pages/members/EditProfile";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import PostAnnouncement from "./pages/create/PostAnnouncement";
 import PostOpportunity from "./pages/create/PostOpportunity";
 import PrivacyPolicy from "./pages/static/PrivacyPolicy";
 import TermsOfService from "./pages/static/TermsOfService";
@@ -78,11 +77,6 @@ function App() {
             <Route path="/volunteer" element={
               <ProtectedRoute>
                 <Volunteer />
-              </ProtectedRoute>
-            } />
-            <Route path="/post_announcement" element={
-              <ProtectedRoute>
-                <PostAnnouncement />
               </ProtectedRoute>
             } />
             <Route path="/post_opportunity" element={

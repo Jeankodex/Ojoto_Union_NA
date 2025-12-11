@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaSearch, FaFilter, FaTimes, FaDownload, 
@@ -9,10 +8,26 @@ import {
 } from "react-icons/fa";
 
 // Import your actual images here
-// Example:
-// import roadRehab1 from "../../assets/gallery/community-projects/road-rehabilitation-1.jpg";
-// import agm2024 from "../../assets/gallery/events/agm-2024-1.jpg";
-// import scholarship from "../../assets/gallery/education/scholarship-award-1.jpg";
+import roadRehab1 from "../../assets/gallery/community-projects/road-construction1.jpeg";
+import roadRehab2 from "../../assets/gallery/community-projects/road-construction2.jpeg";
+
+import techStudents1 from "../../assets/gallery/education/tech-training1.jpg";
+import techStudents2 from "../../assets/gallery/education/tech-training2.jpg";
+import techStudents3 from "../../assets/gallery/education/tech-training3.jpg";
+import techStudents4 from "../../assets/gallery/education/tech-training4.jpg";
+import techStudents5 from "../../assets/gallery/education/tech-training5.jpg";
+import classPupils from "../../assets/gallery/education/classpupils.jpeg";
+import classStudents from "../../assets/gallery/education/classstudents.jpeg";
+
+import sampleGroup from "../../assets/gallery/events/groupix.jpeg";
+
+import health1 from "../../assets/gallery/health/hospital1.jpeg";
+import health2 from "../../assets/gallery/health/hospital2.jpeg";
+import health3 from "../../assets/gallery/health/hospital3.jpeg";
+import health4 from "../../assets/gallery/health/hospital4.jpeg";
+import health5 from "../../assets/gallery/health/health-outreach1.jpeg";
+import health6 from "../../assets/gallery/health/health-outreach2.jpeg";
+import health7 from "../../assets/gallery/health/health-outreach3.jpeg";
 
 // GALLERY CATEGORIES
 const galleryCategories = [
@@ -25,7 +40,7 @@ const galleryCategories = [
   { id: 'members', name: 'Members', icon: <FaUsers />, count: 0 }
 ];
 
-// GALLERY ITEMS STRUCTURE (You'll replace these with your actual images)
+// GALLERY ITEMS WITH ACTUAL IMAGES
 const galleryItems = [
   // COMMUNITY PROJECTS
   {
@@ -35,17 +50,17 @@ const galleryItems = [
     description: 'Complete rehabilitation of Ojoto-Obosi road, 2023',
     date: 'Nov 2023',
     location: 'Ojoto, Anambra',
-    // image: roadRehab1, // Replace with your import
+    image: roadRehab1,
     tags: ['infrastructure', 'development', 'road']
   },
   {
     id: 2,
     category: 'projects',
-    title: 'Modern Bus Stop Installation',
-    description: 'State-of-the-art bus stops installed across Ojoto',
+    title: 'Ongoing road construction in Ojoto',
+    description: 'Standard roads with modern technology across Ojoto',
     date: 'Feb 2024',
     location: 'Ojoto Town',
-    // image: busStop1, // Replace with your import
+    image: roadRehab2,
     tags: ['transport', 'modernization']
   },
   
@@ -57,66 +72,155 @@ const galleryItems = [
     description: 'Members gathering for strategic planning',
     date: 'Dec 2024',
     location: 'Houston, TX',
-    // image: agm2024, // Replace with your import
+    image: sampleGroup,
     tags: ['meeting', 'planning', 'members']
-  },
-  {
-    id: 4,
-    category: 'events',
-    title: 'Cultural Night Celebration',
-    description: 'Celebrating our rich cultural heritage',
-    date: 'Jan 2025',
-    location: 'New York City',
-    // image: culturalNight, // Replace with your import
-    tags: ['culture', 'celebration', 'heritage']
   },
   
   // EDUCATION
   {
-    id: 5,
+    id: 4,
     category: 'education',
     title: 'Scholarship Award Ceremony',
     description: 'Awarding scholarships to indigent students',
     date: 'Sep 2024',
     location: 'Ojoto Secondary School',
-    // image: scholarship, // Replace with your import
+    image: techStudents1,
     tags: ['education', 'scholarship', 'students']
   },
   {
-    id: 6,
+    id: 5,
     category: 'education',
     title: 'Tech Hub Training Session',
     description: 'Youths learning digital skills at St. Paul\'s Tech Hub',
     date: 'Aug 2024',
     location: 'St. Paul\'s Tech Hub',
-    // image: techTraining, // Replace with your import
+    image: techStudents2,
     tags: ['technology', 'youth', 'empowerment']
+  },
+  {
+    id: 6,
+    category: 'education',
+    title: 'Advanced Tech Training',
+    description: 'Students mastering modern technologies',
+    date: 'Aug 2024',
+    location: 'St. Paul\'s Tech Hub',
+    image: techStudents3,
+    tags: ['technology', 'learning', 'skills']
+  },
+  {
+    id: 7,
+    category: 'education',
+    title: 'Classroom Session',
+    description: 'Interactive learning environment',
+    date: 'Sep 2024',
+    location: 'Ojoto Schools',
+    image: classPupils,
+    tags: ['classroom', 'learning', 'students']
+  },
+  {
+    id: 8,
+    category: 'education',
+    title: 'Student Engagement',
+    description: 'Active participation in class activities',
+    date: 'Sep 2024',
+    location: 'Ojoto Schools',
+    image: classStudents,
+    tags: ['engagement', 'education', 'youth']
   },
   
   // HEALTH
   {
-    id: 7,
+    id: 9,
+    category: 'health',
+    title: 'Hospital Facility',
+    description: 'Modern healthcare infrastructure',
+    date: 'Jul 2024',
+    location: 'Ojoto Health Center',
+    image: health1,
+    tags: ['health', 'infrastructure', 'facility']
+  },
+  {
+    id: 10,
     category: 'health',
     title: 'Medical Outreach Program',
     description: 'Free medical checkup for community members',
     date: 'Jul 2024',
     location: 'Ojoto Health Center',
-    // image: medicalOutreach, // Replace with your import
+    image: health2,
     tags: ['health', 'medical', 'community']
   },
-  
-  // EXECUTIVES
   {
-    id: 8,
+    id: 11,
+    category: 'health',
+    title: 'Healthcare Services',
+    description: 'Quality medical care delivery',
+    date: 'Jul 2024',
+    location: 'Ojoto Health Center',
+    image: health3,
+    tags: ['healthcare', 'services', 'medical']
+  },
+  {
+    id: 12,
+    category: 'health',
+    title: 'Medical Facility',
+    description: 'Well-equipped health center',
+    date: 'Jul 2024',
+    location: 'Ojoto Health Center',
+    image: health4,
+    tags: ['facility', 'equipment', 'health']
+  },
+  {
+    id: 13,
+    category: 'health',
+    title: 'Community Health Outreach',
+    description: 'Bringing healthcare to the people',
+    date: 'Jun 2024',
+    location: 'Ojoto Community',
+    image: health5,
+    tags: ['outreach', 'community', 'wellness']
+  },
+  {
+    id: 14,
+    category: 'health',
+    title: 'Health Education',
+    description: 'Teaching preventive healthcare',
+    date: 'Jun 2024',
+    location: 'Ojoto Community',
+    image: health6,
+    tags: ['education', 'prevention', 'awareness']
+  },
+  {
+    id: 15,
+    category: 'health',
+    title: 'Medical Consultation',
+    description: 'One-on-one health consultations',
+    date: 'Jun 2024',
+    location: 'Ojoto Community',
+    image: health7,
+    tags: ['consultation', 'care', 'medical']
+  },
+  
+  // Add placeholder items for categories without images
+  {
+    id: 16,
     category: 'executives',
     title: 'Executive Committee Meeting',
     description: 'Planning community development initiatives',
     date: 'Oct 2024',
     location: 'Toronto, Canada',
-    // image: executivesMeeting, // Replace with your import
-    tags: ['leadership', 'planning']
+    image: null,
+    tags: ['leadership', 'planning', 'governance']
   },
-  // Add more items as you have images...
+  {
+    id: 17,
+    category: 'members',
+    title: 'Community Members Gathering',
+    description: 'Regular members meeting and bonding',
+    date: 'Nov 2024',
+    location: 'Various Locations',
+    image: null,
+    tags: ['membership', 'community', 'unity']
+  }
 ];
 
 export default function Gallery() {
@@ -126,7 +230,7 @@ export default function Gallery() {
   const [filteredItems, setFilteredItems] = useState(galleryItems);
 
   // Filter images based on category and search
-  React.useEffect(() => {
+  useEffect(() => {
     let filtered = galleryItems;
     
     if (selectedCategory !== 'all') {
@@ -173,6 +277,19 @@ export default function Gallery() {
     if (newIndex >= filteredItems.length) newIndex = 0;
     
     setSelectedImage(filteredItems[newIndex]);
+  };
+
+  // Get category emoji
+  const getCategoryEmoji = (category) => {
+    switch(category) {
+      case 'projects': return '🏗️';
+      case 'events': return '🎉';
+      case 'education': return '🎓';
+      case 'health': return '🏥';
+      case 'executives': return '👔';
+      case 'members': return '👥';
+      default: return '📷';
+    }
   };
 
   return (
@@ -290,24 +407,19 @@ export default function Gallery() {
                 >
                   {/* Image Container */}
                   <div className="aspect-square overflow-hidden bg-gray-200">
-                    {/* Replace this div with your actual image */}
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 group-hover:scale-110 transition-transform duration-500">
-                      <div className="text-4xl text-white/70">
-                        {item.category === 'projects' && '🏗️'}
-                        {item.category === 'events' && '🎉'}
-                        {item.category === 'education' && '🎓'}
-                        {item.category === 'health' && '🏥'}
-                        {item.category === 'executives' && '👔'}
-                        {item.category === 'members' && '👥'}
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
+                        <div className="text-4xl">
+                          {getCategoryEmoji(item.category)}
+                        </div>
                       </div>
-                    </div>
-                    {/* Actual image would be:
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    */}
+                    )}
                   </div>
                   
                   {/* Overlay Info */}
@@ -393,23 +505,19 @@ export default function Gallery() {
                   {/* Image Display */}
                   <div className="lg:col-span-2">
                     <div className="aspect-video bg-gray-200 rounded-xl overflow-hidden">
-                      {/* Replace with actual image */}
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
-                        <div className="text-6xl text-white/70">
-                          {selectedImage.category === 'projects' && '🏗️'}
-                          {selectedImage.category === 'events' && '🎉'}
-                          {selectedImage.category === 'education' && '🎓'}
-                          {selectedImage.category === 'health' && '🏥'}
-                          {selectedImage.category === 'executives' && '👔'}
+                      {selectedImage.image ? (
+                        <img
+                          src={selectedImage.image}
+                          alt={selectedImage.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
+                          <div className="text-6xl">
+                            {getCategoryEmoji(selectedImage.category)}
+                          </div>
                         </div>
-                      </div>
-                      {/* Actual image:
-                      <img
-                        src={selectedImage.image}
-                        alt={selectedImage.title}
-                        className="w-full h-full object-cover"
-                      />
-                      */}
+                      )}
                     </div>
                     
                     {/* Navigation Buttons */}

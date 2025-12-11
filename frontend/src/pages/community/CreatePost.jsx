@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -16,6 +15,7 @@ import {
   FaTimes
 } from "react-icons/fa";
 import { SiGooglescholar } from "react-icons/si";
+import { communityAPI } from "../../services/api"; // IMPORT THE API
 
 const CreatePost = () => {
   const navigate = useNavigate();
@@ -32,6 +32,7 @@ const CreatePost = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [charCount, setCharCount] = useState(0);
+  const [error, setError] = useState("");
 
   // Categories with icons and descriptions
   const categories = [
@@ -85,12 +86,16 @@ const CreatePost = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear error when user types
+    if (error) setError("");
   };
 
   const handleContentChange = (e) => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, content: value }));
     setCharCount(value.length);
+    if (error) setError("");
   };
 
   const handleAddTag = () => {
@@ -119,31 +124,71 @@ const CreatePost = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     
     // Validation
     if (!formData.title.trim()) {
-      alert("Please enter a title for your post");
+      setError("Please enter a title for your post");
       return;
     }
     
     if (!formData.content.trim() || formData.content.length < 20) {
-      alert("Please provide more details in your post (at least 20 characters)");
+      setError("Please provide more details in your post (at least 20 characters)");
+      return;
+    }
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError("You must be logged in to create a post. Please login first.");
+      navigate("/login");
       return;
     }
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Prepare post data for backend
+      const postData = {
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        category: formData.category,
+        tags: formData.tags,
+        is_pinned: formData.isPinned,
+        is_urgent: formData.isUrgent
+        // attachments can be added later when file upload is implemented
+      };
+      
+      // Call the real API
+      const response = await communityAPI.createPost(postData);
+      
+      if (response.success) {
+        alert("Post created successfully!");
+        navigate("/community");
+      } else {
+        setError(response.error || "Failed to create post");
+      }
+    } catch (error) {
+      console.error('Create post error:', error);
+      
+      // Handle specific error cases
+      if (error.message.includes("token") || error.message.includes("authentication")) {
+        setError("Your session has expired. Please login again.");
+        localStorage.removeItem('token');
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (error.message.includes("20 characters")) {
+        setError("Content must be at least 20 characters");
+      } else {
+        setError(error.message || "Failed to create post. Please try again.");
+      }
+    } finally {
       setIsSubmitting(false);
-      alert("Post created successfully!");
-      navigate("/community");
-    }, 2000);
+    }
   };
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    // In a real app, you would upload to a server
+    // TODO: Implement file upload to backend
     // For now, we'll just add file names
     const fileNames = files.map(file => ({
       name: file.name,
@@ -198,6 +243,13 @@ const CreatePost = () => {
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Main Form */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Form Header */}
@@ -220,7 +272,7 @@ const CreatePost = () => {
                 {/* Title */}
                 <div>
                   <label className="block text-lg font-semibold text-gray-800 mb-3">
-                    Post Title
+                    Post Title *
                   </label>
                   <input
                     type="text"
@@ -239,7 +291,7 @@ const CreatePost = () => {
                 {/* Category Selection */}
                 <div>
                   <label className="block text-lg font-semibold text-gray-800 mb-3">
-                    Category
+                    Category *
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {categories.map((category) => (
@@ -278,9 +330,9 @@ const CreatePost = () => {
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <label className="block text-lg font-semibold text-gray-800">
-                      Post Content
+                      Post Content * <span className="text-sm font-normal text-gray-500">(min. 20 characters)</span>
                     </label>
-                    <span className={`text-sm ${charCount > 5000 ? 'text-red-600' : 'text-gray-500'}`}>
+                    <span className={`text-sm ${charCount > 5000 ? 'text-red-600' : charCount < 20 ? 'text-amber-600' : 'text-gray-500'}`}>
                       {charCount}/5000 characters
                     </span>
                   </div>
@@ -379,7 +431,7 @@ const CreatePost = () => {
                 {/* Attachments */}
                 <div>
                   <label className="block text-lg font-semibold text-gray-800 mb-3">
-                    Attachments <span className="text-gray-500 text-sm font-normal">(Optional)</span>
+                    Attachments <span className="text-gray-500 text-sm font-normal">(Coming Soon)</span>
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#E4B84D] transition-colors">
                     <input
@@ -398,7 +450,7 @@ const CreatePost = () => {
                         <div>
                           <div className="font-medium text-gray-800">Click to upload files</div>
                           <div className="text-sm text-gray-500 mt-1">
-                            Supports images, PDFs, Word documents
+                            Supports images, PDFs, Word documents (coming soon)
                           </div>
                         </div>
                       </div>
@@ -407,7 +459,7 @@ const CreatePost = () => {
                   
                   {formData.attachments.length > 0 && (
                     <div className="mt-4 space-y-2">
-                      <h4 className="font-medium text-gray-700">Selected files:</h4>
+                      <h4 className="font-medium text-gray-700">Selected files (will be saved locally):</h4>
                       {formData.attachments.map((file, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3">
@@ -481,10 +533,12 @@ const CreatePost = () => {
                 <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || charCount < 20}
                     className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
                       isSubmitting
                         ? 'bg-gray-300 cursor-not-allowed'
+                        : charCount < 20
+                        ? 'bg-gray-200 cursor-not-allowed'
                         : 'bg-gradient-to-r from-[#E4B84D] to-[#FFD166] hover:shadow-xl hover:scale-[1.02] text-[#0B1A33]'
                     }`}
                   >
@@ -612,10 +666,12 @@ const CreatePost = () => {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || charCount < 20}
                     className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
                       isSubmitting
                         ? 'bg-gray-300 cursor-not-allowed'
+                        : charCount < 20
+                        ? 'bg-gray-200 cursor-not-allowed'
                         : 'bg-gradient-to-r from-[#E4B84D] to-[#FFD166] hover:shadow-xl hover:scale-[1.02] text-[#0B1A33]'
                     }`}
                   >

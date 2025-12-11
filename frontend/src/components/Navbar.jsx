@@ -95,7 +95,6 @@ const Navbar = () => {
                 { to: "/questions", label: "Q&A", icon: "❓" },
                 { to: "/members", label: "Members", icon: "👤" },
                 { to: "/volunteer", label: "Volunteer", icon: "🤝" },
-                { to: "/post_announcement", label: "Post", icon: "📢" },
               ].map((item) => (
                 <li key={item.to}>
                   <Link

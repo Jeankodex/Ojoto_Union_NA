@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowLeft, FaGoogle, FaUser } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowLeft, FaUser } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import logo from "../../assets/ojoto_union_logo.png";
 
@@ -65,45 +65,34 @@ const navigate = useNavigate();
 
 const handleLoginSubmit = async (e) => {
   e.preventDefault();
-  
+
   if (!validateForm()) return;
-  
+
   setIsSubmitting(true);
-  
+
   try {
     const credentials = {
       emailOrUsername: formData.emailOrUsername,
       password: formData.password
     };
-    
+
     // Call the login API
     const response = await login(credentials);
-    
-    // Success! Redirect based on user role or to home
-    if (response.user.role === 'admin') {
-      navigate('/admin/dashboard'); // You can create this route later
-    } else {
-      navigate('/dashboard');
-    }
-    
+
+    // Navigate after successful login
+    navigate('/dashboard');
+
   } catch (error) {
     console.error('Login error:', error);
-    setErrors({ 
-      general: error || 'Invalid email/username or password' 
+
+    // Always extract message from error object or fallback
+    setErrors({
+      general: error?.response?.data?.message || error?.message || 'Invalid email/username or password'
     });
   } finally {
     setIsSubmitting(false);
   }
 };
-
-// Add this error display after the password field:
-{errors.general && (
-  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-    <p className="text-red-600 text-sm flex items-center gap-2">
-      ⚠️ {errors.general}
-    </p>
-  </div>
-)}
 
   const handleForgotPasswordSubmit = async (e) => {
     e.preventDefault();
@@ -127,14 +116,6 @@ const handleLoginSubmit = async (e) => {
     }, 1500);
   };
 
-  const handleDemoLogin = (role) => {
-    setFormData({
-      emailOrUsername: role === 'admin' ? 'admin@ojotounion.org' : 'member@example.com',
-      password: 'demoPassword123!',
-      rememberMe: false
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center p-4 relative">
       
@@ -146,22 +127,6 @@ const handleLoginSubmit = async (e) => {
         <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" />
         <span className="font-medium">Back to Home</span>
       </Link>
-
-      {/* Demo Login Buttons */}
-      <div className="absolute top-6 right-6 flex gap-2 z-10">
-        <button
-          onClick={() => handleDemoLogin('admin')}
-          className="px-3 py-1 bg-gradient-to-r from-[#0B1A33] to-[#1a365d] text-white text-xs rounded-lg hover:shadow-lg transition"
-        >
-          Demo Admin
-        </button>
-        <button
-          onClick={() => handleDemoLogin('member')}
-          className="px-3 py-1 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] text-xs rounded-lg hover:shadow-lg transition"
-        >
-          Demo Member
-        </button>
-      </div>
 
       <div className="w-full max-w-4xl flex flex-col lg:flex-row rounded-3xl overflow-hidden shadow-2xl">
         
@@ -313,7 +278,14 @@ const handleLoginSubmit = async (e) => {
                       ⚠️ {errors.password}
                     </p>
                   )}
-                </div>
+                  </div>
+                  {errors.general && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-red-600 text-sm flex items-center gap-2">
+                      ⚠️{errors.general}
+                    </p>
+                  </div>
+                  )}
 
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
@@ -349,25 +321,6 @@ const handleLoginSubmit = async (e) => {
                   )}
                 </button>
               </form>
-
-              {/* Divider */}
-              <div className="my-8 flex items-center">
-                <div className="flex-1 h-px bg-gray-300"></div>
-                <span className="px-4 text-gray-500 text-sm">Or sign in with</span>
-                <div className="flex-1 h-px bg-gray-300"></div>
-              </div>
-
-              {/* Social Login */}
-              <div className="grid grid-cols-2 gap-4">
-                <button className="p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2 group">
-                  <FaGoogle className="text-gray-600 group-hover:text-red-500" />
-                  <span>Google</span>
-                </button>
-                <button className="p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2">
-                  <FaUser className="text-gray-600" />
-                  <span>Member ID</span>
-                </button>
-              </div>
             </>
           ) : (
             /* Forgot Password Form */
@@ -473,13 +426,6 @@ const handleLoginSubmit = async (e) => {
             <span>Never share your credentials</span>
           </div>
         </div>
-      </div>
-
-      {/* Demo Credentials Notice */}
-      <div className="mt-4 text-center">
-        <p className="text-xs text-gray-500">
-          💡 <strong>Demo:</strong> Click "Demo Admin" or "Demo Member" buttons to auto-fill credentials
-        </p>
       </div>
 
       {/* Add CSS for fade animation */}

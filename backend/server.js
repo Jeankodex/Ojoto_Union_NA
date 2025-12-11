@@ -4,6 +4,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const path = require('path');
 
 // Import database
 require('./database/init');
@@ -11,6 +12,9 @@ const { db } = require('./utils/db');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const communityRoutes = require('./routes/communityRoutes');
+const qandaRoutes = require('./routes/qandaRoutes');
 
 // ========================
 // SECTION 2: APP SETUP (ONCE)
@@ -18,9 +22,19 @@ const authRoutes = require('./routes/authRoutes');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+
 
 // ========================
 // SECTION 3: ROUTES (Order matters!)
@@ -68,6 +82,33 @@ app.get('/api/health', async (req, res) => {
         res.status(500).json({
             status: 'unhealthy',
             message: 'Database connection failed',
+            error: error.message
+        });
+    }
+});
+
+//4. API route
+
+app.use('/api/profile', profileRoutes);
+
+app.get('/api/users', async (req, res) => {
+    try {
+        const users = await new Promise((resolve, reject) => {
+            db.all("SELECT id, email, username, first_name, surname, phone, created_at FROM users ORDER BY created_at DESC", (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        res.json({
+            success: true,
+            count: users.length,
+            users
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch users',
             error: error.message
         });
     }
@@ -131,28 +172,10 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-app.get('/api/users', async (req, res) => {
-    try {
-        const users = await new Promise((resolve, reject) => {
-            db.all("SELECT id, email, username, first_name, surname, phone, created_at FROM users ORDER BY created_at DESC", (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows);
-            });
-        });
-        
-        res.json({
-            success: true,
-            count: users.length,
-            users
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch users',
-            error: error.message
-        });
-    }
-});
+app.use('/api/community', communityRoutes);
+// Add after community routes
+
+app.use('/api/qanda', qandaRoutes);
 
 // ========================
 // SECTION 4: ERROR HANDLERS (MUST BE LAST)
@@ -185,7 +208,7 @@ app.use((err, req, res, next) => {
 });
 
 // ========================
-// SECTION 5: START SERVER
+// SECTION 5: START SERVERA
 // ========================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

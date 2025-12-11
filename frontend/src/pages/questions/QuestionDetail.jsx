@@ -1,73 +1,122 @@
-
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaUser, FaClock, FaCheckCircle } from "react-icons/fa";
 import StatusBadge from "../../components/questions/StatusBadge";
 import AnswerCard from "../../components/questions/AnswerCard";
 import AnswerForm from "../../components/questions/AnswerForm";
+import { qandaAPI } from "../../services/api"; // ADD THIS IMPORT
 
 const QuestionDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [question, setQuestion] = useState(null);
+  const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [error, setError] = useState("");
 
-  // Fetch question data
+  // Fetch question and answers
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setQuestion({
-        id: 1,
-        title: "How do I update my membership information?",
-        content: "I recently moved to a new state and need to update my contact information in the membership directory. What's the process for this?",
-        author: "Chinedu Okeke",
-        author_id: 1,
-        created_at: "2024-12-15T10:30:00",
-        is_urgent: false,
-        is_resolved: true,
-        answers: [
-          {
-            id: 1,
-            content: "You can update your information through the member portal. Log in and go to 'My Profile' section.",
-            author: "Admin User",
-            created_at: "2024-12-15T14:20:00",
-            is_helpful: true
-          },
-          {
-            id: 2,
-            content: "Alternatively, you can email membership@ojotounion.org with your updated details.",
-            author: "Community Coordinator",
-            created_at: "2024-12-16T09:15:00",
-            is_helpful: false
-          }
-        ]
-      });
-      setLoading(false);
-    }, 1000);
+    fetchQuestionData();
   }, [id]);
 
-  const handleAnswerSubmit = (answerContent) => {
-    setSubmittingAnswer(true);
-    // API call to submit answer
-    setTimeout(() => {
-      const newAnswer = {
-        id: question.answers.length + 1,
-        content: answerContent,
-        author: "Current User",
-        created_at: new Date().toISOString(),
-        is_helpful: false
-      };
-      setQuestion(prev => ({
-        ...prev,
-        answers: [...prev.answers, newAnswer]
-      }));
-      setSubmittingAnswer(false);
-    }, 1000);
+  const fetchQuestionData = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      // Fetch question
+      const questionResponse = await qandaAPI.getQuestion(id);
+      if (questionResponse.success) {
+        setQuestion(questionResponse.data);
+        
+        // Fetch answers
+        const answersResponse = await qandaAPI.getAnswers(id);
+        if (answersResponse.success) {
+          setAnswers(answersResponse.data);
+        }
+      } else {
+        setError("Question not found");
+      }
+    } catch (error) {
+      console.error('Failed to fetch question:', error);
+      setError("Failed to load question. Please try again.");
+      // Fallback to mock data
+      setQuestion(getMockQuestion());
+      setAnswers(getMockQuestion().answers || []);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleMarkResolved = () => {
-    // API call to mark as resolved
-    setQuestion(prev => ({ ...prev, is_resolved: true }));
+  // Mock data fallback
+  const getMockQuestion = () => {
+    return {
+      id: 1,
+      title: "How do I update my membership information?",
+      content: "I recently moved to a new state and need to update my contact information in the membership directory. What's the process for this?",
+      author_name: "Chinedu Okeke",
+      created_at: "2024-12-15T10:30:00",
+      is_urgent: false,
+      is_resolved: true,
+      views: 45
+    };
+  };
+
+  const handleAnswerSubmit = async (answerContent) => {
+    setSubmittingAnswer(true);
+    try {
+      const response = await qandaAPI.addAnswer(id, answerContent);
+      
+      if (response.success) {
+        // Add new answer to list
+        const newAnswer = {
+          ...response.data,
+          author_name: "You", // This would come from user context
+          created_at: new Date().toISOString()
+        };
+        setAnswers(prev => [...prev, newAnswer]);
+        
+        // Update question answer count
+        setQuestion(prev => ({
+          ...prev,
+          answers_count: (prev.answers_count || 0) + 1
+        }));
+        
+        alert("Answer posted successfully!");
+      }
+    } catch (error) {
+      console.error('Failed to post answer:', error);
+      alert("Failed to post answer. Please try again.");
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
+
+  const handleMarkHelpful = async (answerId) => {
+    try {
+      const response = await qandaAPI.markAnswerHelpful(answerId);
+      if (response.success) {
+        // Update answer in state
+        setAnswers(prev => prev.map(answer => 
+          answer.id === answerId ? { ...answer, is_helpful: true } : answer
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to mark answer helpful:', error);
+    }
+  };
+
+  const handleMarkResolved = async () => {
+    try {
+      const response = await qandaAPI.markQuestionResolved(id);
+      if (response.success) {
+        setQuestion(prev => ({ ...prev, is_resolved: true }));
+        alert("Question marked as resolved!");
+      }
+    } catch (error) {
+      console.error('Failed to mark question resolved:', error);
+      alert("Failed to mark question as resolved.");
+    }
   };
 
   if (loading) {
@@ -76,6 +125,25 @@ const QuestionDetail = () => {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#E4B84D] border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading question...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !question) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4">❓</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">Question Not Found</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link
+            to="/questions"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] font-bold rounded-xl hover:shadow-lg transition"
+          >
+            <FaArrowLeft />
+            Back to Questions
+          </Link>
         </div>
       </div>
     );
@@ -92,6 +160,12 @@ const QuestionDetail = () => {
           <FaArrowLeft />
           Back to Questions
         </Link>
+
+        {error && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-700">
+            {error} <button onClick={fetchQuestionData} className="underline ml-2">Refresh</button>
+          </div>
+        )}
 
         {/* Question Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-8">
@@ -123,7 +197,7 @@ const QuestionDetail = () => {
             <div className="flex items-center gap-4 text-white/90">
               <span className="flex items-center gap-2">
                 <FaUser size={14} />
-                {question.author}
+                {question.author_name || question.author}
               </span>
               <span className="flex items-center gap-2">
                 <FaClock size={14} />
@@ -133,6 +207,9 @@ const QuestionDetail = () => {
                   month: 'long',
                   day: 'numeric'
                 })}
+              </span>
+              <span className="text-sm">
+                {question.views || 0} views
               </span>
             </div>
           </div>
@@ -151,17 +228,21 @@ const QuestionDetail = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-[#0B1A33]">
-              Answers ({question.answers.length})
+              Answers ({answers.length})
             </h2>
             <div className="text-sm text-gray-600">
-              Sorted by: <span className="font-semibold text-[#E4B84D]">Most Helpful</span>
+              {question.answers_count || 0} total answers
             </div>
           </div>
 
-          {question.answers.length > 0 ? (
+          {answers.length > 0 ? (
             <div className="space-y-4">
-              {question.answers.map(answer => (
-                <AnswerCard key={answer.id} answer={answer} />
+              {answers.map(answer => (
+                <AnswerCard 
+                  key={answer.id} 
+                  answer={answer} 
+                  onMarkHelpful={handleMarkHelpful}
+                />
               ))}
             </div>
           ) : (

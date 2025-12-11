@@ -1,69 +1,104 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaSearch, FaFilter, FaPlus, FaQuestionCircle } from "react-icons/fa";
 import QuestionCard from "../../components/questions/QuestionCard";
+import { qandaAPI } from "../../services/api"; // ADD THIS IMPORT
 
 const Questions = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all"); // all, unresolved, resolved, urgent
+  const [error, setError] = useState("");
 
-  // Fetch questions
+  // Fetch questions from backend
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setQuestions([
-        {
-          id: 1,
-          title: "How do I update my membership information?",
-          content: "I recently moved and need to update my contact details...",
-          author: "Chinedu Okeke",
-          created_at: "2024-12-15T10:30:00",
-          is_urgent: false,
-          is_resolved: true,
-          answers: [{}, {}]
-        },
-        {
-          id: 2,
-          title: "Urgent: Need help with visa documentation",
-          content: "Has anyone recently gone through the visa process...",
-          author: "Amina Bello",
-          created_at: "2024-12-14T15:45:00",
-          is_urgent: true,
-          is_resolved: false,
-          answers: [{}]
-        },
-        {
-          id: 3,
-          title: "Looking for housing recommendations in Houston",
-          content: "Moving to Houston next month and looking for...",
-          author: "Tunde Adeyemi",
-          created_at: "2024-12-13T09:20:00",
-          is_urgent: false,
-          is_resolved: false,
-          answers: []
-        },
-      ]);
-      setLoading(false);
-    }, 1500);
-  }, []);
+    fetchQuestions();
+  }, [filter, searchQuery]);
 
+  const fetchQuestions = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const filters = {
+        category: "all", // You can add category filter if needed
+        status: filter === "all" ? "all" : 
+                filter === "unresolved" ? "unanswered" : 
+                filter === "resolved" ? "resolved" : "all",
+        search: searchQuery,
+        page: 1,
+        limit: 20
+      };
+      
+      const response = await qandaAPI.getQuestions(filters);
+      
+      if (response.success) {
+        setQuestions(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch questions:', error);
+      setError("Failed to load questions. Please try again.");
+      // Fallback to mock data
+      setQuestions(getMockQuestions());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mock data fallback
+  const getMockQuestions = () => {
+    return [
+      {
+        id: 1,
+        title: "How do I update my membership information?",
+        content: "I recently moved and need to update my contact details...",
+        author_name: "Chinedu Okeke",
+        created_at: "2024-12-15T10:30:00",
+        is_urgent: false,
+        is_resolved: true,
+        answers_count: 2,
+        views: 45
+      },
+      {
+        id: 2,
+        title: "Urgent: Need help with visa documentation",
+        content: "Has anyone recently gone through the visa process...",
+        author_name: "Amina Bello",
+        created_at: "2024-12-14T15:45:00",
+        is_urgent: true,
+        is_resolved: false,
+        answers_count: 1,
+        views: 78
+      },
+      {
+        id: 3,
+        title: "Looking for housing recommendations in Houston",
+        content: "Moving to Houston next month and looking for...",
+        author_name: "Tunde Adeyemi",
+        created_at: "2024-12-13T09:20:00",
+        is_urgent: false,
+        is_resolved: false,
+        answers_count: 0,
+        views: 32
+      },
+    ];
+  };
+
+  // Frontend filtering as fallback
   const filteredQuestions = questions.filter(question => {
-    // Search filter
-    const matchesSearch = searchQuery === "" || 
-      question.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      question.content.toLowerCase().includes(searchQuery.toLowerCase());
+    if (searchQuery) {
+      const matchesSearch = 
+        question.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        question.content.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+    }
     
-    // Status filter
-    const matchesFilter = 
-      filter === "all" ||
-      (filter === "unresolved" && !question.is_resolved) ||
-      (filter === "resolved" && question.is_resolved) ||
-      (filter === "urgent" && question.is_urgent);
+    // Frontend status filter (as backup)
+    if (filter === "unresolved" && question.is_resolved) return false;
+    if (filter === "resolved" && !question.is_resolved) return false;
+    if (filter === "urgent" && !question.is_urgent) return false;
     
-    return matchesSearch && matchesFilter;
+    return true;
   });
 
   return (
@@ -104,7 +139,7 @@ const Questions = () => {
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">
-                {questions.reduce((acc, q) => acc + (q.answers?.length || 0), 0)}
+                {questions.reduce((acc, q) => acc + (q.answers_count || 0), 0)}
               </div>
               <div className="text-gray-300">Total Answers</div>
             </div>
@@ -114,6 +149,12 @@ const Questions = () => {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            {error} <button onClick={fetchQuestions} className="underline ml-2">Try again</button>
+          </div>
+        )}
+
         {/* Search and Filter Bar */}
         <div className="mb-8 bg-white rounded-2xl shadow-md p-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -144,6 +185,13 @@ const Questions = () => {
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
+              
+              <button
+                onClick={fetchQuestions}
+                className="px-4 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition"
+              >
+                Refresh
+              </button>
             </div>
           </div>
         </div>

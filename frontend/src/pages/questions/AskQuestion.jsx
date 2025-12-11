@@ -1,15 +1,18 @@
-
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaPaperPlane } from "react-icons/fa";
+import { qandaAPI } from "../../services/api"; // ADD THIS IMPORT
 
 const AskQuestion = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    is_urgent: false
+    is_urgent: false,
+    category: "general" // Added category
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -17,13 +20,65 @@ const AskQuestion = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    if (error) setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    
+    // Validation
+    if (!formData.title.trim()) {
+      setError("Please enter a question title");
+      return;
+    }
+    
+    if (!formData.content.trim() || formData.content.length < 20) {
+      setError("Question details must be at least 20 characters");
+      return;
+    }
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError("You must be logged in to ask a question. Please login first.");
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+    
     setIsSubmitting(true);
-    // API call here
-    setTimeout(() => setIsSubmitting(false), 1500);
+    
+    try {
+      const questionData = {
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        category: formData.category,
+        is_urgent: formData.is_urgent
+      };
+      
+      const response = await qandaAPI.createQuestion(questionData);
+      
+      if (response.success) {
+        alert("Question posted successfully!");
+        navigate("/questions");
+      } else {
+        setError(response.error || "Failed to post question");
+      }
+    } catch (error) {
+      console.error('Ask question error:', error);
+      
+      if (error.message.includes("token") || error.message.includes("authentication")) {
+        setError("Your session has expired. Please login again.");
+        localStorage.removeItem('token');
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (error.message.includes("20 characters")) {
+        setError("Question details must be at least 20 characters");
+      } else {
+        setError(error.message || "Failed to post question. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -45,6 +100,13 @@ const AskQuestion = () => {
           <p className="text-gray-600">Get help from the Ojoto Union community</p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="p-8">
@@ -52,7 +114,7 @@ const AskQuestion = () => {
               {/* Title */}
               <div>
                 <label className="block text-lg font-semibold text-gray-800 mb-2">
-                  Question Title
+                  Question Title *
                 </label>
                 <input
                   type="text"
@@ -71,7 +133,7 @@ const AskQuestion = () => {
               {/* Content */}
               <div>
                 <label className="block text-lg font-semibold text-gray-800 mb-2">
-                  Question Details
+                  Question Details * <span className="text-sm font-normal text-gray-500">(min. 20 characters)</span>
                 </label>
                 <textarea
                   name="content"
@@ -84,6 +146,28 @@ const AskQuestion = () => {
                 <p className="text-sm text-gray-500 mt-2">
                   Include any relevant context or specific details
                 </p>
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-lg font-semibold text-gray-800 mb-2">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E4B84D] focus:border-transparent transition"
+                >
+                  <option value="general">General</option>
+                  <option value="membership">Membership</option>
+                  <option value="housing">Housing</option>
+                  <option value="visa">Visa/Immigration</option>
+                  <option value="jobs">Jobs/Career</option>
+                  <option value="education">Education</option>
+                  <option value="events">Events</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
 
               {/* Urgent Checkbox */}
@@ -110,10 +194,12 @@ const AskQuestion = () => {
               <div className="flex gap-4 pt-6">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || formData.content.length < 20}
                   className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
                     isSubmitting
                       ? 'bg-gray-300 cursor-not-allowed'
+                      : formData.content.length < 20
+                      ? 'bg-gray-200 cursor-not-allowed'
                       : 'bg-gradient-to-r from-[#E4B84D] to-[#FFD166] hover:shadow-xl hover:scale-[1.02] text-[#0B1A33]'
                   }`}
                 >

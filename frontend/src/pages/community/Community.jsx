@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
@@ -23,6 +22,7 @@ import {
   FaChevronRight
 } from "react-icons/fa";
 import { SiGooglescholar } from "react-icons/si";
+import { communityAPI } from "../../services/api"; // IMPORT THE API
 
 const Community = () => {
   const [posts, setPosts] = useState([]);
@@ -32,6 +32,7 @@ const Community = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [newComment, setNewComment] = useState({});
   const [activePost, setActivePost] = useState(null);
+  const [error, setError] = useState("");
 
   // Categories with icons and colors
   const categories = [
@@ -44,83 +45,94 @@ const Community = () => {
     { id: "cultural", name: "Cultural", icon: <SiGooglescholar />, color: "from-[#E4B84D] to-[#FFD166]" },
   ];
 
-  // Fetch posts (mock data)
+  // Fetch posts from backend API
   useEffect(() => {
-    setTimeout(() => {
-      setPosts([
-        {
-          id: 1,
-          title: "Annual Ojoto Union Picnic 2024 - Save the Date!",
-          content: "Mark your calendars! Our annual community picnic will be held on July 20th at Central Park. Family-friendly event with food, games, and cultural activities.",
-          author: "Chinwe Okafor",
-          authorRole: "Event Coordinator",
-          authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chinwe",
-          category: "events",
-          created_at: "2024-12-10T14:30:00",
-          is_pinned: true,
-          likes: 24,
-          comments: [
-            { id: 1, author: "Emeka Nwosu", content: "Can't wait! Should I bring anything?", created_at: "2024-12-10T16:45:00" },
-            { id: 2, author: "Amina Bello", content: "Will there be activities for children?", created_at: "2024-12-10T18:20:00" },
-          ]
-        },
-        {
-          id: 2,
-          title: "Looking for Housing Assistance in Toronto",
-          content: "Moving to Toronto next month and looking for temporary accommodation. Any recommendations for short-term rentals or community members who can help?",
-          author: "Tunde Adeyemi",
-          authorRole: "Member",
-          authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tunde",
-          category: "help",
-          created_at: "2024-12-09T11:20:00",
-          is_pinned: false,
-          likes: 15,
-          comments: [
-            { id: 1, author: "Chioma Eze", content: "I know a great Airbnb host in downtown Toronto.", created_at: "2024-12-09T13:45:00" },
-          ]
-        },
-        {
-          id: 3,
-          title: "Proposal: Monthly Virtual Meetups",
-          content: "I suggest we start monthly virtual meetups for members who can't attend in-person events. Could be great for networking and keeping connected.",
-          author: "Adebayo Johnson",
-          authorRole: "Active Member",
-          authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Adebayo",
-          category: "ideas",
-          created_at: "2024-12-08T09:15:00",
-          is_pinned: false,
-          likes: 42,
-          comments: [
-            { id: 1, author: "Ngozi Okoro", content: "Great idea! Zoom or Google Meet?", created_at: "2024-12-08T10:30:00" },
-            { id: 2, author: "Kunle Adebayo", content: "I can help organize if needed.", created_at: "2024-12-08T14:20:00" },
-            { id: 3, author: "Fatima Ahmed", content: "+1 for this initiative!", created_at: "2024-12-08T16:45:00" },
-          ]
-        },
-        {
-          id: 4,
-          title: "Cultural Heritage Month Celebration",
-          content: "Join us for a month-long celebration of our rich cultural heritage. Various activities planned including cooking classes, language sessions, and traditional dance workshops.",
-          author: "Cultural Committee",
-          authorRole: "Committee",
-          authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Cultural",
-          category: "cultural",
-          created_at: "2024-12-07T16:45:00",
-          is_pinned: false,
-          likes: 31,
-          comments: []
-        },
-      ]);
+    fetchPosts();
+  }, [selectedCategory, sortBy, searchQuery]);
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const filters = {
+        category: selectedCategory,
+        sort: sortBy,
+        search: searchQuery,
+        page: 1,
+        limit: 20
+      };
+      
+      const response = await communityAPI.getPosts(filters);
+      
+      if (response.success) {
+        // Transform backend data to frontend format
+        const transformedPosts = response.data.map(post => ({
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          author: post.author_name || post.username,
+          authorRole: post.author_role || "Member",
+          authorAvatar: post.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.username}`,
+          category: post.category,
+          created_at: post.created_at,
+          is_pinned: post.is_pinned,
+          likes: post.likes || 0,
+          comments_count: post.comments_count || 0,
+          tags: post.tags || [],
+          attachments: post.attachments || []
+        }));
+        
+        setPosts(transformedPosts);
+      }
+    } catch (error) {
+      console.error('Failed to fetch posts:', error);
+      setError("Failed to load community posts. Please try again.");
+      // Fallback to mock data if API fails
+      setPosts(getMockPosts());
+    } finally {
       setLoading(false);
-    }, 1500);
-  }, []);
+    }
+  };
+
+  // Mock data fallback
+  const getMockPosts = () => {
+    return [
+      {
+        id: 1,
+        title: "Annual Ojoto Union Picnic 2024 - Save the Date!",
+        content: "Mark your calendars! Our annual community picnic will be held on July 20th at Central Park. Family-friendly event with food, games, and cultural activities.",
+        author: "Chinwe Okafor",
+        authorRole: "Event Coordinator",
+        authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chinwe",
+        category: "events",
+        created_at: "2024-12-10T14:30:00",
+        is_pinned: true,
+        likes: 24,
+        comments: []
+      },
+      {
+        id: 2,
+        title: "Looking for Housing Assistance in Toronto",
+        content: "Moving to Toronto next month and looking for temporary accommodation. Any recommendations for short-term rentals or community members who can help?",
+        author: "Tunde Adeyemi",
+        authorRole: "Member",
+        authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tunde",
+        category: "help",
+        created_at: "2024-12-09T11:20:00",
+        is_pinned: false,
+        likes: 15,
+        comments: []
+      }
+    ];
+  };
 
   const filteredPosts = posts.filter(post => {
-    // Category filter
+    // Category filter (frontend fallback)
     if (selectedCategory !== "all" && post.category !== selectedCategory) {
       return false;
     }
     
-    // Search filter
+    // Search filter (frontend fallback)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -132,12 +144,12 @@ const Community = () => {
     
     return true;
   }).sort((a, b) => {
-    // Sorting
+    // Sorting (frontend fallback)
     switch (sortBy) {
       case "newest":
         return new Date(b.created_at) - new Date(a.created_at);
       case "most_commented":
-        return (b.comments?.length || 0) - (a.comments?.length || 0);
+        return (b.comments_count || 0) - (a.comments_count || 0);
       case "most_liked":
         return (b.likes || 0) - (a.likes || 0);
       default:
@@ -145,37 +157,58 @@ const Community = () => {
     }
   });
 
-  const handleLikePost = (postId) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId ? { ...post, likes: (post.likes || 0) + 1 } : post
-    ));
+  const handleLikePost = async (postId) => {
+    try {
+      await communityAPI.likePost(postId);
+      // Update local state
+      setPosts(prev => prev.map(post => 
+        post.id === postId ? { ...post, likes: (post.likes || 0) + 1 } : post
+      ));
+    } catch (error) {
+      console.error('Failed to like post:', error);
+      alert("Failed to like post. Please try again.");
+    }
   };
 
-  const handleAddComment = (postId) => {
+  const handleAddComment = async (postId) => {
     if (!newComment[postId]?.trim()) return;
     
-    const comment = {
-      id: Date.now(),
-      author: "Current User",
-      content: newComment[postId],
-      created_at: new Date().toISOString(),
-    };
-    
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            comments: [...(post.comments || []), comment] 
-          } 
-        : post
-    ));
-    
-    setNewComment(prev => ({ ...prev, [postId]: "" }));
+    try {
+      const response = await communityAPI.addComment(postId, newComment[postId].trim());
+      
+      if (response.success) {
+        // Update local state
+        const comment = response.data;
+        setPosts(prev => prev.map(post => 
+          post.id === postId 
+            ? { 
+                ...post, 
+                comments_count: (post.comments_count || 0) + 1,
+                // If you want to show comments immediately, fetch them
+                // Or you could fetch comments for this post
+              } 
+            : post
+        ));
+        
+        setNewComment(prev => ({ ...prev, [postId]: "" }));
+        
+        // Refresh comments for active post
+        if (activePost === postId) {
+          // You could fetch comments here or rely on users to refresh
+          alert("Comment added successfully!");
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      alert("Failed to add comment. Please try again.");
+    }
   };
 
   const handleDeletePost = (postId) => {
     if (window.confirm("Are you sure you want to delete this post?")) {
+      // TODO: Add API call for delete when backend supports it
       setPosts(prev => prev.filter(post => post.id !== postId));
+      alert("Post deleted (frontend only - backend delete not implemented yet)");
     }
   };
 
@@ -214,18 +247,20 @@ const Community = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
-            <Link
-              // Change this in Community.jsx
-                to="/community/create"  // 👈 Updated link
+              <Link
+                to="/community/create"
                 className="inline-flex items-center justify-center gap-3 px-6 py-3 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] font-bold rounded-xl hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-            >
-            <FaPlus />
+              >
+                <FaPlus />
                 Create Post
-            </Link>
+              </Link>
               
-              <button className="inline-flex items-center justify-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition">
+              <button 
+                onClick={fetchPosts}
+                className="inline-flex items-center justify-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-xl hover:bg-white/20 transition"
+              >
                 <FaFilter />
-                Filter
+                Refresh
               </button>
             </div>
           </div>
@@ -238,7 +273,7 @@ const Community = () => {
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">
-                {posts.reduce((acc, post) => acc + (post.comments?.length || 0), 0)}
+                {posts.reduce((acc, post) => acc + (post.comments_count || 0), 0)}
               </div>
               <div className="text-gray-300 text-sm">Total Comments</div>
             </div>
@@ -260,6 +295,12 @@ const Community = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            {error} <button onClick={fetchPosts} className="underline ml-2">Try again</button>
+          </div>
+        )}
+
         {/* Categories Navigation */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -450,7 +491,7 @@ const Community = () => {
   );
 };
 
-// Post Card Component
+// Post Card Component (Updated to work with real data)
 const PostCard = ({ 
   post, 
   categoryInfo, 
@@ -490,7 +531,11 @@ const PostCard = ({
                 </span>
                 <span className="flex items-center gap-1">
                   <FaComment />
-                  {post.comments?.length || 0} comments
+                  {post.comments_count || 0} comments
+                </span>
+                <span className="flex items-center gap-1">
+                  <FaHeart />
+                  {post.likes || 0} likes
                 </span>
               </div>
             </div>
@@ -511,6 +556,17 @@ const PostCard = ({
         
         <h2 className="text-xl font-bold text-gray-900 mb-3">{post.title}</h2>
         <p className="text-gray-700 leading-relaxed">{post.content}</p>
+        
+        {/* Tags */}
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {post.tags.map((tag, index) => (
+              <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Post Actions */}
@@ -540,15 +596,15 @@ const PostCard = ({
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Only show delete for author/admin */}
-            {post.author === "Current User" && (
+            {/* Only show delete for author/admin - TODO: Implement proper auth check */}
+            {/* {post.author === "Current User" && (
               <button
                 onClick={() => onDelete(post.id)}
                 className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
               >
                 <FaTrash />
               </button>
-            )}
+            )} */}
           </div>
         </div>
       </div>
@@ -556,33 +612,12 @@ const PostCard = ({
       {/* Comments Section */}
       {isActive && (
         <div className="p-6 bg-gray-50 border-t border-gray-100">
-          {/* Existing Comments */}
-          {post.comments && post.comments.length > 0 ? (
-            <div className="mb-6 space-y-4">
-              <h4 className="font-semibold text-gray-800 mb-4">Comments ({post.comments.length})</h4>
-              {post.comments.map(comment => (
-                <div key={comment.id} className="bg-white rounded-xl p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <FaUserCircle className="text-gray-400 text-xl mt-1" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-semibold text-gray-800">{comment.author}</span>
-                        <span className="text-xs text-gray-500">
-                          {formatTimeAgo(comment.created_at)}
-                        </span>
-                      </div>
-                      <p className="text-gray-700">{comment.content}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mb-6 text-center py-4 bg-white rounded-xl">
-              <FaComment className="text-gray-400 text-2xl mx-auto mb-2" />
-              <p className="text-gray-600">No comments yet. Be the first to comment!</p>
-            </div>
-          )}
+          {/* Note about comments */}
+          <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <p className="text-blue-700 text-sm">
+              💡 Comments are saved to the database. Refresh the page to see new comments from other users.
+            </p>
+          </div>
 
           {/* Add Comment Form */}
           <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -607,6 +642,9 @@ const PostCard = ({
                 Post
               </button>
             </div>
+            <p className="text-gray-500 text-sm mt-2">
+              Your comment will be visible to all community members.
+            </p>
           </div>
         </div>
       )}
