@@ -1,5 +1,16 @@
-// profileController.js - PostgreSQL Version
-const { query } = require('../database/init'); // ← Changed import
+// controllers/profileController.js - PostgreSQL Version
+const { query } = require('../database/init'); 
+
+// ✅ Safe JSON parser (handles both string + object)
+const safeParse = (value, fallback = {}) => {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
 
 // Get user profile
 const getProfile = async (req, res) => {
@@ -20,6 +31,14 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
+    // ✅ Parse JSON fields safely
+    profile.skills = safeParse(profile.skills, []);
+    profile.education = safeParse(profile.education, []);
+    profile.experience = safeParse(profile.experience, []);
+    profile.languages = safeParse(profile.languages, []);
+    profile.contact_preferences = safeParse(profile.contact_preferences, {});
+    profile.privacy_settings = safeParse(profile.privacy_settings, {});
+
     res.json({ success: true, profile });
 
   } catch (error) {
@@ -28,7 +47,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-// Update profile - SIMPLE AND WORKING
+// Update profile
 const updateProfile = async (req, res) => {
   try {
     const userId = req.userId;
@@ -67,8 +86,25 @@ const updateProfile = async (req, res) => {
       JSON.stringify(data.education || []),
       JSON.stringify(data.experience || []),
       JSON.stringify(data.languages || []),
-      data.contact_preferences || '{"email":true,"phone":true,"linkedin":true,"inPerson":true}',
-      data.privacy_settings || '{"profileVisibility":"members","contactVisibility":"members","activityVisibility":"public"}',
+      
+      // ✅ Always stringify (fixes bug)
+      JSON.stringify(
+        data.contact_preferences || {
+          email: true,
+          phone: true,
+          linkedin: true,
+          inPerson: true
+        }
+      ),
+      
+      JSON.stringify(
+        data.privacy_settings || {
+          profileVisibility: "members",
+          contactVisibility: "members",
+          activityVisibility: "public"
+        }
+      ),
+
       userId
     ]);
 
@@ -107,6 +143,14 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // ✅ Parse JSON fields
+    user.skills = safeParse(user.skills, []);
+    user.education = safeParse(user.education, []);
+    user.experience = safeParse(user.experience, []);
+    user.languages = safeParse(user.languages, []);
+    user.contact_preferences = safeParse(user.contact_preferences, {});
+    user.privacy_settings = safeParse(user.privacy_settings, {});
+
     res.json({ success: true, user });
 
   } catch (error) {
@@ -115,7 +159,7 @@ const getUserById = async (req, res) => {
   }
 };
 
-// GET ALL PUBLIC PROFILES (for member directory)
+// GET ALL PUBLIC PROFILES
 const getAllProfiles = async (req, res) => {
   try {
     const result = await query(`
@@ -152,29 +196,14 @@ const getAllProfiles = async (req, res) => {
     
     const profiles = result.rows;
 
-    // Parse JSON fields
-    const parsedProfiles = profiles.map(profile => {
-      try {
-        return {
-          ...profile,
-          skills: profile.skills ? JSON.parse(profile.skills) : [],
-          education: profile.education ? JSON.parse(profile.education) : [],
-          experience: profile.experience ? JSON.parse(profile.experience) : [],
-          languages: profile.languages ? JSON.parse(profile.languages) : [],
-          privacy_settings: profile.privacy_settings ? JSON.parse(profile.privacy_settings) : {}
-        };
-      } catch (parseError) {
-        console.error('Error parsing profile data:', parseError);
-        return {
-          ...profile,
-          skills: [],
-          education: [],
-          experience: [],
-          languages: [],
-          privacy_settings: {}
-        };
-      }
-    });
+    const parsedProfiles = profiles.map(profile => ({
+      ...profile,
+      skills: safeParse(profile.skills, []),
+      education: safeParse(profile.education, []),
+      experience: safeParse(profile.experience, []),
+      languages: safeParse(profile.languages, []),
+      privacy_settings: safeParse(profile.privacy_settings, {})
+    }));
 
     res.json({ success: true, data: parsedProfiles });
 
