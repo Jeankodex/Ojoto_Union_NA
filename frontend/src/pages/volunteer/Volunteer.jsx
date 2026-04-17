@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import axios from 'axios';
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -10,145 +11,65 @@ import {
   FaPaperPlane, FaArrowRight
 } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
+import api from "../../services/api"; // ✅ ADD THIS IMPORT
 
 // Mock data - replace with API calls
-const mockOpportunities = [
-  {
-    id: 1,
-    title: "Community Tutoring Program",
-    organization: "Ojoto Union NA Education Committee",
-    description: "Provide academic support to students in math, science, and English. Help shape the future of our youth through personalized tutoring sessions.",
-    location: "Virtual & Ojoto Secondary School",
-    time_commitment: "2-4 hours per week",
-    skills_needed: "Teaching, Math, Science, English, Patience",
-    category: "education",
-    is_urgent: false,
-    applications_count: 12,
-    created_at: "2024-01-15",
-    created_by: "Education Committee"
-  },
-  {
-    id: 2,
-    title: "Medical Outreach Volunteers",
-    organization: "Ojoto Health Initiative",
-    description: "Assist in organizing and running medical outreach programs in rural communities. Roles include registration, triage, and patient support.",
-    location: "Ojoto Health Center & Surrounding Villages",
-    time_commitment: "Full day events (monthly)",
-    skills_needed: "Medical background, Organization, Communication",
-    category: "health",
-    is_urgent: true,
-    applications_count: 8,
-    created_at: "2024-01-10",
-    created_by: "Health Committee"
-  },
-  {
-    id: 3,
-    title: "Road Rehabilitation Project",
-    organization: "Community Development Team",
-    description: "Join hands in improving our community infrastructure. Help with road rehabilitation projects across Ojoto.",
-    location: "Ojoto Town",
-    time_commitment: "Weekends (flexible)",
-    skills_needed: "Construction, Engineering, Teamwork",
-    category: "community",
-    is_urgent: false,
-    applications_count: 25,
-    created_at: "2024-01-05",
-    created_by: "Development Committee"
-  },
-  {
-    id: 4,
-    title: "Youth Tech Mentorship",
-    organization: "Ojoto Tech Hub",
-    description: "Mentor young people in digital skills. Share your expertise in programming, design, or digital literacy.",
-    location: "St. Paul's Tech Hub, Ojoto",
-    time_commitment: "3 hours weekly",
-    skills_needed: "Programming, Design, Mentoring",
-    category: "technology",
-    is_urgent: false,
-    applications_count: 15,
-    created_at: "2024-01-12",
-    created_by: "Tech Committee"
-  },
-  {
-    id: 5,
-    title: "Cultural Festival Organizers",
-    organization: "Cultural Affairs Committee",
-    description: "Help organize our annual cultural festival celebrating Ojoto heritage. Roles include planning, logistics, and coordination.",
-    location: "Ojoto Town Hall & Community Grounds",
-    time_commitment: "5-10 hours weekly (leading up to event)",
-    skills_needed: "Event Planning, Organization, Creativity",
-    category: "culture",
-    is_urgent: false,
-    applications_count: 18,
-    created_at: "2024-01-08",
-    created_by: "Cultural Committee"
-  },
-  {
-    id: 6,
-    title: "Emergency Relief Distribution",
-    organization: "Ojoto Relief Foundation",
-    description: "Urgent need for volunteers to distribute relief materials to affected communities. Immediate assistance required.",
-    location: "Flood-Affected Areas",
-    time_commitment: "Full-time (2 weeks)",
-    skills_needed: "Logistics, Distribution, Compassion",
-    category: "relief",
-    is_urgent: true,
-    applications_count: 6,
-    created_at: "2024-01-20",
-    created_by: "Relief Committee"
-  }
-];
-
-const categories = [
-  { id: 'all', name: 'All Opportunities', icon: <FaHandsHelping />, count: 6 },
-  { id: 'community', name: 'Community Building', icon: <FaUsers />, count: 1 },
-  { id: 'education', name: 'Education & Mentoring', icon: <FaGraduationCap />, count: 1 },
-  { id: 'health', name: 'Health Services', icon: <FaHeart />, count: 1 },
-  { id: 'technology', name: 'Technology', icon: <FaTools />, count: 1 },
-  { id: 'culture', name: 'Culture & Arts', icon: <FaTree />, count: 1 },
-  { id: 'relief', name: 'Emergency Relief', icon: <FaExclamationCircle />, count: 1 }
-];
 
 export default function Volunteer() {
   const { isAuthenticated } = useAuth();
-  const [opportunities, setOpportunities] = useState(mockOpportunities);
-  const [filteredOpportunities, setFilteredOpportunities] = useState(mockOpportunities);
+  const [opportunities, setOpportunities] = useState([]); // ✅ ADD THIS
+  const [filteredOpportunities, setFilteredOpportunities] = useState([]); // ✅ ADD THIS
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Filter opportunities
-  useEffect(() => {
-    let filtered = [...opportunities];
-    
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(opp => opp.category === selectedCategory);
-    }
-    
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(opp => 
-        opp.title.toLowerCase().includes(query) ||
-        opp.organization.toLowerCase().includes(query) ||
-        opp.description.toLowerCase().includes(query) ||
-        opp.skills_needed.toLowerCase().includes(query)
-      );
-    }
-    
-    setFilteredOpportunities(filtered);
-    
-    // Update category counts
-    categories.forEach(cat => {
-      if (cat.id === 'all') {
-        cat.count = opportunities.length;
-      } else {
-        cat.count = opportunities.filter(opp => opp.category === cat.id).length;
-      }
-    });
-  }, [selectedCategory, searchQuery, opportunities]);
+  const categories = [
+    { id: 'all', name: 'All Opportunities', icon: <FaHandsHelping />, count: 0 },
+    { id: 'community', name: 'Community Building', icon: <FaUsers />, count: 0 },
+    { id: 'education', name: 'Education & Mentoring', icon: <FaGraduationCap />, count: 0 },
+    { id: 'health', name: 'Health Services', icon: <FaHeart />, count: 0 },
+    { id: 'technology', name: 'Technology', icon: <FaTools />, count: 0 },
+    { id: 'culture', name: 'Culture & Arts', icon: <FaTree />, count: 0 },
+    { id: 'relief', name: 'Emergency Relief', icon: <FaExclamationCircle />, count: 0 }
+  ];
 
+  // Filter opportunities
+    useEffect(() => {
+    fetchOpportunities();
+  }, [selectedCategory, searchQuery]);
+
+  // In Volunteer.jsx, update the fetchOpportunities function:
+  const fetchOpportunities = async () => {
+    setLoading(true);
+    try {
+      const response = await api.volunteer.getOpportunities({
+        category: selectedCategory !== 'all' ? selectedCategory : '',
+        search: searchQuery,
+        limit: 20
+      });
+  
+      if (response.success) {
+        const opportunitiesData = response.data.opportunities || [];
+        setOpportunities(opportunitiesData);
+        setFilteredOpportunities(opportunitiesData);
+    
+        // Update category counts
+        categories.forEach(cat => {
+          if (cat.id === 'all') {
+            cat.count = opportunitiesData.length;
+          } else {
+            cat.count = opportunitiesData.filter(opp => opp.category === cat.id).length;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      setOpportunities([]);
+      setFilteredOpportunities([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -157,6 +78,14 @@ export default function Volunteer() {
     setSelectedCategory('all');
     setSearchQuery('');
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#E4B84D]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -549,7 +478,7 @@ export default function Volunteer() {
                              hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3"
                   >
                     <FaPlus />
-                    Create New Opportunity
+                    Post New Opportunity
                   </Link>
                 )}
               </div>

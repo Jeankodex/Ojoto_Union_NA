@@ -8,6 +8,7 @@ import {
   FaMapMarkerAlt, FaClock, FaExclamationCircle
 } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
+import api from "../../services/api"; // ✅ ADD THIS IMPORT
 
 // Mock data - replace with API call
 const mockOpportunity = {
@@ -70,21 +71,22 @@ export default function ApplyVolunteer() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    
+  
     try {
-      // Submit application to backend
-      console.log("Submitting application:", { opportunityId: id, ...formData });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Show success and redirect
-      alert("Application submitted successfully!");
-      navigate(`/volunteer/${id}`);
-      
+      const response = await api.volunteer.applyToOpportunity(id, {
+        skills: formData.skills,
+        message: formData.message
+      });
+    
+      if (response.success) {
+        alert("Application submitted successfully!");
+        navigate(`/volunteer/${id}`);
+      } else {
+        throw new Error(response.error || 'Failed to submit application');
+      }
     } catch (error) {
       console.error("Error submitting application:", error);
-      alert("Failed to submit application. Please try again.");
+      alert(error.message || "Failed to submit application. Please try again.");
     } finally {
       setSubmitting(false);
     }

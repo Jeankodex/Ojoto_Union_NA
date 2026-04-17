@@ -1,3 +1,4 @@
+//EditProfile.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
@@ -38,6 +39,9 @@ const EditProfile = () => {
   const [newLanguage, setNewLanguage] = useState({ language: "", proficiency: "Beginner" });
   const [education, setEducation] = useState([]);
   const [experience, setExperience] = useState([]);
+  const [uploadedProfilePicture, setUploadedProfilePicture] = useState(null);
+  const [uploadedCoverPhoto, setUploadedCoverPhoto] = useState(null);
+
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -80,10 +84,10 @@ const EditProfile = () => {
     setIsLoading(true);
     try {
       const response = await api.profile.getProfile();
+
       if (response.success && response.profile) {
         const profile = response.profile;
-        
-        
+
         // Set form data from API response
         setFormData({
           fullName: profile.full_name || `${user.first_name} ${user.surname}`,
@@ -96,30 +100,47 @@ const EditProfile = () => {
           phone: profile.phone || user.phone || "",
           linkedin: profile.linkedin || "",
           website: profile.website || "",
-          contactPreferences: profile.contact_preferences || {
-            email: true,
-            phone: true,
-            linkedin: true,
-            inPerson: true
-          },
-          privacy: profile.privacy_settings || {
-            profileVisibility: "members",
-            contactVisibility: "members",
-            activityVisibility: "public"
-          }
+
+          // ✅ Safe parsing for contactPreferences
+          contactPreferences:
+            typeof profile.contact_preferences === "string"
+              ? JSON.parse(profile.contact_preferences)
+              : profile.contact_preferences || {
+                  email: true,
+                  phone: true,
+                  linkedin: true,
+                  inPerson: true,
+                },
+
+          // ✅ Safe parsing for privacy settings
+          privacy:
+            typeof profile.privacy_settings === "string"
+              ? JSON.parse(profile.privacy_settings)
+              : profile.privacy_settings || {
+                  profileVisibility: "members",
+                  contactVisibility: "members",
+                  activityVisibility: "public",
+                },
         });
 
-        // Set arrays from API response
-        // Parse JSON fields into arrays
+        // Set arrays from API response (no changes here)
         setSkills(JSON.parse(profile.skills || '[]'));
         setEducation(JSON.parse(profile.education || '[]'));
         setExperience(JSON.parse(profile.experience || '[]'));
         setLanguages(JSON.parse(profile.languages || '[]'));
-
-        
-        // Set profile picture if available
+          
+       // FIX 1: Set profile picture with correct path
         if (profile.profile_picture && profile.profile_picture !== 'default.png') {
-          setProfilePicture(`/uploads/${profile.profile_picture}`);
+          setProfilePicture(`/uploads/profile-pictures/${profile.profile_picture}`);
+        } else {
+          setProfilePicture("https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser");
+        }
+      
+        // FIX 2: Set cover photo if available
+        if (profile.cover_photo && profile.cover_photo !== 'default-cover.jpg') {
+          setCoverPhoto(`/uploads/cover-photos/${profile.cover_photo}`);
+        } else {
+          setCoverPhoto(null);
         }
       }
     } catch (error) {
@@ -150,42 +171,76 @@ const EditProfile = () => {
     }
   };
 
+// === Profile Picture Upload ===
   const handleProfilePictureUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('Profile picture must be less than 5MB');
-        return;
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Profile picture must be less than 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => setProfilePicture(reader.result);
+    reader.readAsDataURL(file);
+  
+    try {
+      setIsSubmitting(true);
+      const response = await api.profile.uploadProfilePicture(file);
+
+      if (response.success) {
+        // ✅ Use absolute path for preview
+        const imageUrl = response.url.startsWith('http')
+          ? response.url
+          : `/uploads/profile-pictures/${response.filename}`;
+
+        setProfilePicture(imageUrl);       // for immediate preview
+        setUploadedProfilePicture(response.filename); // for DB update
+        setFormData(prev => ({ ...prev, profilePicture: response.filename }));
+
+        // ✅ Allow re-upload of the same file
+        e.target.value = null;
+      } else {
+        alert(`Failed to upload: ${response.message}`);
       }
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePicture(reader.result);
-      };
-      reader.readAsDataURL(file);
-      
-      // In a real app, you would upload to server here
-      // await uploadProfilePicture(file);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`Failed to upload profile picture: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+
+  // === Cover Photo Upload ===
   const handleCoverPhotoUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
         alert('Cover photo must be less than 10MB');
         return;
-      }
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverPhoto(reader.result);
-      };
-      reader.readAsDataURL(file);
-      
-      // In a real app, you would upload to server here
-      // await uploadCoverPhoto(file);
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => setCoverPhoto(reader.result);
+    reader.readAsDataURL(file);
+
+    try {
+        setIsSubmitting(true);
+        const response = await api.profile.uploadCoverPhoto(file);
+
+        if (response.success) {
+            setCoverPhoto(response.url); // for display
+            setUploadedCoverPhoto(response.filename); // for DB
+        } else {
+            alert(`Failed to upload: ${response.message}`);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert(`Failed to upload cover photo: ${error.message}`);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -265,17 +320,28 @@ const EditProfile = () => {
         languages: languages,
         education: education,
         experience: experience,
-        contact_preferences: formData.contactPreferences,
-        privacy_settings: formData.privacy,
         phone: formData.phone,
         first_name: user?.firstName || user?.first_name,
-        surname: user?.surname
+        surname: user?.surname,
+
+         // Include image filenames from formData (set during upload)
+        ...(uploadedProfilePicture && { profile_picture: uploadedProfilePicture }),
+        ...(uploadedCoverPhoto && { cover_photo: uploadedCoverPhoto }),
+
+        // CRITICAL: Send as strings
+        contact_preferences: JSON.stringify(formData.contactPreferences),
+        privacy_settings: JSON.stringify(formData.privacy)
       };
       
+      console.log('🔄 Frontend sending:', {
+        contact_preferences: profileData.contact_preferences,
+        privacy_settings: profileData.privacy_settings
+      });
+
       const response = await api.profile.updateProfile(profileData);
       
+      
       if (response.success) {
-        // Update user context with new phone number if changed
         if (formData.phone !== user?.phone) {
           updateUser({ phone: formData.phone });
         }

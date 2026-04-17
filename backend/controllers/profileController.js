@@ -1,161 +1,195 @@
-
-
-//profileController.js
-const { db } = require('../utils/db');
+// profileController.js - PostgreSQL Version
+const { query } = require('../database/init'); // ← Changed import
 
 // Get user profile
 const getProfile = async (req, res) => {
-    try {
-        const userId = req.userId;
-        console.log('🔹 getProfile called, userId from token:', userId);
-        
-        const profile = await new Promise((resolve, reject) => {
-            db.get(`
-                SELECT 
-                    u.*,
-                    p.*,
-                    us.*
-                FROM users u
-                LEFT JOIN profiles p ON u.id = p.user_id
-                LEFT JOIN user_stats us ON u.id = us.user_id
-                WHERE u.id = ?
-            `, [userId], (err, row) => {
-                if (err) {
-                    console.error('❌ SQL error in getProfile:', err);
-                    reject(err);
-                } else {
-                    console.log('🔹 Row fetched from DB:', row);
-                    resolve(row);
-                }
-            });
-        });
+  try {
+    const userId = req.userId;
+    
+    const result = await query(`
+      SELECT u.*, p.*, us.*
+      FROM users u
+      LEFT JOIN profiles p ON u.id = p.user_id
+      LEFT JOIN user_stats us ON u.id = us.user_id
+      WHERE u.id = $1
+    `, [userId]);
+    
+    const profile = result.rows[0];
 
-        if (!profile) {
-            console.log('⚠️ No profile found for userId:', userId);
-            return res.status(404).json({ error: 'Profile not found' });
-        }
-        console.log('✅ Profile found:', profile);
-
-        res.json({
-            success: true,
-            profile
-        });
-
-    } catch (error) {
-        console.error('Get profile error:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch profile', 
-            details: error.message 
-        });
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
     }
+
+    res.json({ success: true, profile });
+
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
 };
 
-// Update profile
+// Update profile - SIMPLE AND WORKING
 const updateProfile = async (req, res) => {
-    try {
-        const userId = req.userId;
-        const {
-            full_name, title, profession, specialization, 
-            location, bio, linkedin, website,
-            skills, education, experience, languages,
-            contact_preferences, privacy_settings
-        } = req.body;
+  try {
+    const userId = req.userId;
+    const data = req.body;
+    
+    console.log('📦 Backend received:', data);
 
-        // Update profile
-        await new Promise((resolve, reject) => {
-            const sql = `
-                UPDATE profiles SET
-                    full_name = COALESCE(?, full_name),
-                    title = COALESCE(?, title),
-                    profession = COALESCE(?, profession),
-                    specialization = COALESCE(?, specialization),
-                    location = COALESCE(?, location),
-                    bio = COALESCE(?, bio),
-                    linkedin = COALESCE(?, linkedin),
-                    website = COALESCE(?, website),
-                    skills = COALESCE(?, skills),
-                    education = COALESCE(?, education),
-                    experience = COALESCE(?, experience),
-                    languages = COALESCE(?, languages),
-                    contact_preferences = COALESCE(?, contact_preferences),
-                    privacy_settings = COALESCE(?, privacy_settings),
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = ?
-            `;
-            db.run(sql, [
-                full_name, title, profession, specialization,
-                location, bio, linkedin, website,
-                JSON.stringify(skills), JSON.stringify(education), 
-                JSON.stringify(experience), JSON.stringify(languages),
-                JSON.stringify(contact_preferences), JSON.stringify(privacy_settings),
-                userId
-            ], (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
+    await query(`
+      UPDATE profiles SET
+        full_name = $1,
+        title = $2,
+        profession = $3,
+        specialization = $4,
+        location = $5,
+        bio = $6,
+        linkedin = $7,
+        website = $8,
+        skills = $9,
+        education = $10,
+        experience = $11,
+        languages = $12,
+        contact_preferences = $13,
+        privacy_settings = $14,
+        updated_at = NOW()
+      WHERE user_id = $15
+    `, [
+      data.full_name || '',
+      data.title || '',
+      data.profession || '',
+      data.specialization || '',
+      data.location || '',
+      data.bio || '',
+      data.linkedin || '',
+      data.website || '',
+      JSON.stringify(data.skills || []),
+      JSON.stringify(data.education || []),
+      JSON.stringify(data.experience || []),
+      JSON.stringify(data.languages || []),
+      data.contact_preferences || '{"email":true,"phone":true,"linkedin":true,"inPerson":true}',
+      data.privacy_settings || '{"profileVisibility":"members","contactVisibility":"members","activityVisibility":"public"}',
+      userId
+    ]);
 
-        res.json({
-            success: true,
-            message: 'Profile updated successfully'
-        });
+    console.log('✅ Profile updated');
 
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ 
-            error: 'Failed to update profile', 
-            details: error.message 
-        });
-    }
+    res.json({
+      success: true,
+      message: 'Profile updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update profile'
+    });
+  }
 };
 
-// Get user by ID (for member detail)
+// Get user by ID
 const getUserById = async (req, res) => {
-    try {
-        const userId = req.params.id;
-        
-        const user = await new Promise((resolve, reject) => {
-            db.get(`
-                SELECT 
-                    u.id, u.email, u.username, u.first_name, u.surname, 
-                    u.phone, u.profile_picture, u.role, u.created_at,
-                    p.full_name, p.title, p.profession, p.specialization,
-                    p.location, p.bio, p.linkedin, p.website,
-                    p.skills, p.education, p.experience, p.languages,
-                    p.contact_preferences, p.privacy_settings,
-                    us.posts_count, us.comments_count, us.questions_count,
-                    us.answers_count, us.connections_count, us.events_attended,
-                    us.last_active
-                FROM users u
-                LEFT JOIN profiles p ON u.id = p.user_id
-                LEFT JOIN user_stats us ON u.id = us.user_id
-                WHERE u.id = ?
-            `, [userId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+  try {
+    const userId = req.params.id;
+    
+    const result = await query(`
+      SELECT u.*, p.*, us.*
+      FROM users u
+      LEFT JOIN profiles p ON u.id = p.user_id
+      LEFT JOIN user_stats us ON u.id = us.user_id
+      WHERE u.id = $1
+    `, [userId]);
+    
+    const user = result.rows[0];
 
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.json({
-            success: true,
-            user
-        });
-
-    } catch (error) {
-        console.error('Get user by ID error:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch user', 
-            details: error.message 
-        });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
+
+    res.json({ success: true, user });
+
+  } catch (error) {
+    console.error('Get user by ID error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+};
+
+// GET ALL PUBLIC PROFILES (for member directory)
+const getAllProfiles = async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT 
+        u.id,
+        u.first_name,
+        u.surname,
+        u.email,
+        u.phone,
+        u.is_online,
+        u.created_at,
+        u.role,
+        p.profile_picture,
+        p.full_name,
+        p.title,
+        p.profession,
+        p.specialization,
+        p.location,
+        p.bio,
+        p.linkedin,
+        p.website,
+        p.skills,
+        p.education,
+        p.experience,
+        p.languages,
+        p.privacy_settings
+      FROM users u
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE u.role = 'member' 
+      AND (p.privacy_settings IS NULL OR 
+           p.privacy_settings->>'profileVisibility' IN ('public', 'members'))
+      ORDER BY u.created_at DESC
+    `);
+    
+    const profiles = result.rows;
+
+    // Parse JSON fields
+    const parsedProfiles = profiles.map(profile => {
+      try {
+        return {
+          ...profile,
+          skills: profile.skills ? JSON.parse(profile.skills) : [],
+          education: profile.education ? JSON.parse(profile.education) : [],
+          experience: profile.experience ? JSON.parse(profile.experience) : [],
+          languages: profile.languages ? JSON.parse(profile.languages) : [],
+          privacy_settings: profile.privacy_settings ? JSON.parse(profile.privacy_settings) : {}
+        };
+      } catch (parseError) {
+        console.error('Error parsing profile data:', parseError);
+        return {
+          ...profile,
+          skills: [],
+          education: [],
+          experience: [],
+          languages: [],
+          privacy_settings: {}
+        };
+      }
+    });
+
+    res.json({ success: true, data: parsedProfiles });
+
+  } catch (error) {
+    console.error('Get all profiles error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to retrieve profiles' 
+    });
+  }
 };
 
 module.exports = {
-    getProfile,
-    updateProfile,
-    getUserById
+  getProfile,
+  updateProfile,
+  getUserById,
+  getAllProfiles
 };

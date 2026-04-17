@@ -1,4 +1,4 @@
-
+// MemberDetail.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,8 +63,12 @@ const MemberDetail = () => {
           education: JSON.parse(user.education || "[]"),
           experience: JSON.parse(user.experience || "[]"),
           languages: JSON.parse(user.languages || "[]"),
-          contact_preferences: JSON.parse(user.contact_preferences || "{}"),
-        });
+
+          contact_preferences:
+            typeof user.contact_preferences === "string"
+            ? JSON.parse(user.contact_preferences)
+            : user.contact_preferences || {},
+            });
 
         checkConnectionStatus(user);
       } catch (err) {
@@ -75,7 +79,7 @@ const MemberDetail = () => {
     };
 
     fetchData();
-  }, [id]); // <-- Closing brace was missing here
+  }, [id]); 
 
   const checkConnectionStatus = async () => {
     // This would be a real API call to check if users are connected
@@ -94,7 +98,7 @@ const MemberDetail = () => {
     }
   };
 
-  // Rest of your code remains the same...
+  
   // [All the remaining code stays exactly as you have it]
   const handleConnect = async () => {
     if (!currentUser) {
@@ -243,11 +247,15 @@ END:VCARD`;
       {/* Cover Photo */}
       <div className="relative h-64 md:h-80 bg-gradient-to-r from-[#0B1A33] to-[#1a365d]">
         <div className="absolute inset-0 bg-black/40"></div>
-        {member.cover_photo ? (
+        {member.cover_photo && member.cover_photo !== 'default-cover.jpg' ? (
           <img 
-            src={member.cover_photo} 
+            src={`/uploads/cover-photos/${member.cover_photo}`}
             alt="Cover" 
             className="absolute inset-0 w-full h-full object-cover opacity-50"
+            onError={(e) => {
+              console.error('Failed to load cover photo:', member.cover_photo);
+              e.target.style.display = 'none';
+            }}
           />
         ) : null}
         
@@ -286,11 +294,15 @@ END:VCARD`;
               <div className="relative">
                 <img 
                   src={member.profile_picture && member.profile_picture !== 'default.png' 
-                    ? `/uploads/${member.profile_picture}` 
+                    ? `/uploads/profile-pictures/${member.profile_picture}`
                     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.full_name || member.username}`
                   }
                   alt={member.full_name}
                   className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-lg"
+                  onError={(e) => {
+                    console.error('Failed to load profile picture:', member.profile_picture);
+                    e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.full_name || member.username}`;
+                  }}
                 />
                 {member.is_online && (
                   <div className="absolute bottom-4 right-4 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>

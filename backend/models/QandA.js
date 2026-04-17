@@ -1,5 +1,5 @@
-
-const { run, get, all } = require('../utils/db');
+// models/QandA.js
+const { query } = require('../database/init'); // ← Changed import
 
 class QandA {
   // CREATE QUESTION
@@ -9,18 +9,19 @@ class QandA {
     const sql = `
       INSERT INTO questions 
       (user_id, title, content, category, is_urgent)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
     `;
     
-    const result = await run(sql, [
+    const result = await query(sql, [
       userId,
       title,
       content,
       category,
-      is_urgent ? 1 : 0
+      is_urgent
     ]);
     
-    return { id: result.id, ...questionData, user_id: userId };
+    return { id: result.rows[0].id, ...questionData, user_id: userId };
   }
   
   // GET ALL QUESTIONS WITH FILTERS
@@ -33,47 +34,51 @@ class QandA {
       limit = 20 
     } = filters;
     
-    let query = `
+    let sql = `
       SELECT 
         q.*,
         u.username,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM questions q
       JOIN users u ON q.user_id = u.id
+      LEFT JOIN profiles prof ON u.id = prof.user_id
       WHERE 1=1
     `;
     
     const params = [];
+    let paramIndex = 1;
     
     // Add filters
     if (category && category !== 'all') {
-      query += ' AND q.category = ?';
+      sql += ` AND q.category = $${paramIndex++}`;
       params.push(category);
     }
     
     if (status === 'resolved') {
-      query += ' AND q.is_resolved = 1';
+      sql += ' AND q.is_resolved = TRUE';
     } else if (status === 'unanswered') {
-      query += ' AND q.answers_count = 0';
+      sql += ' AND q.answers_count = 0';
     }
     
     if (search) {
-      query += ' AND (q.title LIKE ? OR q.content LIKE ?)';
+      sql += ` AND (q.title ILIKE $${paramIndex} OR q.content ILIKE $${paramIndex + 1})`;
       const searchTerm = `%${search}%`;
       params.push(searchTerm, searchTerm);
+      paramIndex += 2;
     }
     
-    // Sorting - newest or most answered
-    query += ' ORDER BY q.created_at DESC';
+    // Sorting
+    sql += ' ORDER BY q.created_at DESC';
     
     // Pagination
     const offset = (page - 1) * limit;
-    query += ' LIMIT ? OFFSET ?';
+    sql += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limit, offset);
     
     // Get questions
-    const questions = await all(query, params);
+    const questionsResult = await query(sql, params);
+    const questions = questionsResult.rows;
     
     // Parse boolean fields
     const parsedQuestions = questions.map(q => ({
@@ -85,28 +90,29 @@ class QandA {
     }));
     
     // Get total count
-    let countQuery = `SELECT COUNT(*) as total FROM questions q WHERE 1=1`;
+    let countSql = `SELECT COUNT(*) as total FROM questions q WHERE 1=1`;
     const countParams = [];
+    let countIndex = 1;
     
     if (category && category !== 'all') {
-      countQuery += ' AND q.category = ?';
+      countSql += ` AND q.category = $${countIndex++}`;
       countParams.push(category);
     }
     
     if (status === 'resolved') {
-      countQuery += ' AND q.is_resolved = 1';
+      countSql += ' AND q.is_resolved = TRUE';
     } else if (status === 'unanswered') {
-      countQuery += ' AND q.answers_count = 0';
+      countSql += ' AND q.answers_count = 0';
     }
     
     if (search) {
-      countQuery += ' AND (q.title LIKE ? OR q.content LIKE ?)';
+      countSql += ` AND (q.title ILIKE $${countIndex} OR q.content ILIKE $${countIndex + 1})`;
       const searchTerm = `%${search}%`;
       countParams.push(searchTerm, searchTerm);
     }
     
-    const countResult = await get(countQuery, countParams);
-    const total = countResult.total;
+    const countResult = await query(countSql, countParams);
+    const total = parseInt(countResult.rows[0].total);
     
     return {
       questions: parsedQuestions,
@@ -119,18 +125,20 @@ class QandA {
   
   // GET SINGLE QUESTION
   static async getQuestionById(questionId) {
-    const query = `
+    const sql = `
       SELECT 
         q.*,
         u.username,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM questions q
       JOIN users u ON q.user_id = u.id
-      WHERE q.id = ?
+      LEFT JOIN profiles prof ON u.id = prof.user_id
+      WHERE q.id = $1
     `;
     
-    const question = await get(query, [questionId]);
+    const result = await query(sql, [questionId]);
+    let question = result.rows[0];
     
     if (question) {
       question.is_urgent = Boolean(question.is_urgent);
@@ -144,48 +152,56 @@ class QandA {
   static async addAnswer(questionId, userId, content) {
     const sql = `
       INSERT INTO answers (question_id, user_id, content)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
+      RETURNING id
     `;
     
-    const result = await run(sql, [questionId, userId, content]);
-    return { id: result.id, question_id: questionId, user_id: userId, content };
+    const result = await query(sql, [questionId, userId, content]);
+    return { 
+      id: result.rows[0].id, 
+      question_id: questionId, 
+      user_id: userId, 
+      content 
+    };
   }
   
   // GET ANSWERS FOR A QUESTION
   static async getAnswers(questionId) {
-    const query = `
+    const sql = `
       SELECT 
         a.*,
         u.username,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM answers a
       JOIN users u ON a.user_id = u.id
-      WHERE a.question_id = ?
+      LEFT JOIN profiles prof ON u.id = prof.user_id
+      WHERE a.question_id = $1
       ORDER BY a.created_at ASC
     `;
     
-    return await all(query, [questionId]);
+    const result = await query(sql, [questionId]);
+    return result.rows;
   }
   
   // MARK ANSWER AS HELPFUL
   static async markAnswerHelpful(answerId) {
-    const sql = `UPDATE answers SET is_helpful = 1 WHERE id = ?`;
-    const result = await run(sql, [answerId]);
-    return result.changes > 0;
+    const sql = `UPDATE answers SET is_helpful = TRUE WHERE id = $1`;
+    const result = await query(sql, [answerId]);
+    return result.rowCount > 0;
   }
   
   // MARK QUESTION AS RESOLVED
   static async markQuestionResolved(questionId) {
-    const sql = `UPDATE questions SET is_resolved = 1 WHERE id = ?`;
-    const result = await run(sql, [questionId]);
-    return result.changes > 0;
+    const sql = `UPDATE questions SET is_resolved = TRUE WHERE id = $1`;
+    const result = await query(sql, [questionId]);
+    return result.rowCount > 0;
   }
   
   // INCREMENT QUESTION VIEWS
   static async incrementViews(questionId) {
-    const sql = `UPDATE questions SET views = views + 1 WHERE id = ?`;
-    await run(sql, [questionId]);
+    const sql = `UPDATE questions SET views = views + 1 WHERE id = $1`;
+    await query(sql, [questionId]);
   }
 }
 

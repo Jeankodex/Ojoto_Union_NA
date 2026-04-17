@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from "react";
+import axios from 'axios';
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
@@ -9,57 +9,32 @@ import {
   FaExclamationCircle, FaShareAlt, FaBookmark
 } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
-
-// Mock data - replace with API call
-const mockOpportunity = {
-  id: 1,
-  title: "Community Tutoring Program",
-  organization: "Ojoto Union NA Education Committee",
-  description: `We are seeking dedicated volunteers to provide academic support to students in our community. This program aims to improve educational outcomes for students in math, science, and English.
-
-Responsibilities include:
-• Conducting one-on-one or small group tutoring sessions
-• Preparing lesson materials and practice exercises
-• Monitoring student progress and providing feedback
-• Participating in training sessions for tutors
-
-This is an excellent opportunity to make a direct impact on the future of our youth while sharing your knowledge and skills.`,
-  location: "Virtual & Ojoto Secondary School",
-  time_commitment: "2-4 hours per week (flexible scheduling)",
-  skills_needed: "Teaching experience, Strong math/science/English skills, Patience, Good communication",
-  category: "education",
-  is_urgent: false,
-  contact_email: "education@ojotounion.org",
-  contact_phone: "+1 (555) 123-4567",
-  applications_count: 12,
-  approved_count: 8,
-  pending_count: 4,
-  created_at: "January 15, 2024",
-  created_by: "Education Committee",
-  requirements: [
-    "Minimum commitment of 3 months",
-    "Background check required",
-    "Teaching/tutoring experience preferred",
-    "Must be available weekends or evenings"
-  ]
-};
+import api from "../../services/api"; // ✅ ADD THIS IMPORT
 
 export default function VolunteerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const [opportunity, setOpportunity] = useState(mockOpportunity);
+  const [opportunity, setOpportunity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  useEffect(() => {
-    // Fetch opportunity data based on id
+  const fetchOpportunity = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setOpportunity(mockOpportunity);
+    try {
+      const response = await api.volunteer.getOpportunity(id);
+      if (response.success) {
+        setOpportunity(response.data);
+      } else {
+        setOpportunity(null);
+      }
+    } catch (error) {
+      console.error('Error fetching opportunity:', error);
+      setOpportunity(null);
+    } finally {
       setLoading(false);
-    }, 500);
-  }, [id]);
+    }
+  };
 
   const handleApply = () => {
     if (!isAuthenticated) {
@@ -70,11 +45,11 @@ export default function VolunteerDetail() {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
+    if (navigator.share && opportunity) {
       try {
         await navigator.share({
           title: opportunity.title,
-          text: opportunity.description.substring(0, 100) + "...",
+          text: opportunity.description?.substring(0, 100) + "...",
           url: window.location.href,
         });
       } catch (error) {
@@ -87,6 +62,7 @@ export default function VolunteerDetail() {
     }
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -94,6 +70,45 @@ export default function VolunteerDetail() {
       </div>
     );
   }
+
+  // Not found state
+  if (!opportunity) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="text-4xl mb-4">🔍</div>
+          <h2 className="text-2xl font-bold text-[#0B1A33] mb-2">Opportunity Not Found</h2>
+          <p className="text-gray-600 mb-6">The volunteer opportunity you're looking for doesn't exist.</p>
+          <Link
+            to="/volunteer"
+            className="px-6 py-3 bg-gradient-to-r from-[#0B1A33] to-[#1a365d] 
+                     text-white font-bold rounded-xl hover:shadow-lg transition-all"
+          >
+            Browse All Opportunities
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Format date if needed
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  // Parse requirements if it's a string
+  const getRequirements = () => {
+    if (!opportunity.requirements) return [];
+    if (Array.isArray(opportunity.requirements)) return opportunity.requirements;
+    // If it's a string, try to split by commas or newlines
+    return opportunity.requirements.split(/[,|\n]/).filter(req => req.trim());
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -156,7 +171,7 @@ export default function VolunteerDetail() {
                         </span>
                       )}
                       <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
-                        {opportunity.category.toUpperCase()}
+                        {opportunity.category?.toUpperCase() || 'VOLUNTEER'}
                       </span>
                     </div>
                     
@@ -193,6 +208,26 @@ export default function VolunteerDetail() {
                     </div>
                   )}
                   
+                  {opportunity.date && (
+                    <div className="flex items-center gap-3">
+                      <FaCalendarAlt className="text-[#E4B84D] flex-shrink-0" />
+                      <div>
+                        <div className="text-sm text-gray-500">Date</div>
+                        <div className="font-medium text-gray-800">{formatDate(opportunity.date)}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {opportunity.slots && (
+                    <div className="flex items-center gap-3">
+                      <FaUsers className="text-[#E4B84D] flex-shrink-0" />
+                      <div>
+                        <div className="text-sm text-gray-500">Available Slots</div>
+                        <div className="font-medium text-gray-800">{opportunity.slots}</div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {opportunity.skills_needed && (
                     <div className="flex items-start gap-3 md:col-span-2">
                       <FaTools className="text-[#E4B84D] flex-shrink-0 mt-1" />
@@ -213,14 +248,14 @@ export default function VolunteerDetail() {
                 </div>
                 
                 {/* Requirements */}
-                {opportunity.requirements && opportunity.requirements.length > 0 && (
+                {getRequirements().length > 0 && (
                   <div className="mb-8">
                     <h3 className="text-2xl font-bold text-[#0B1A33] mb-4">Requirements</h3>
                     <ul className="space-y-3">
-                      {opportunity.requirements.map((req, index) => (
+                      {getRequirements().map((req, index) => (
                         <li key={index} className="flex items-start gap-3">
                           <div className="w-2 h-2 bg-[#E4B84D] rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700">{req}</span>
+                          <span className="text-gray-700">{req.trim()}</span>
                         </li>
                       ))}
                     </ul>
@@ -234,13 +269,13 @@ export default function VolunteerDetail() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-6 bg-gray-50 rounded-xl">
                     <div className="text-4xl font-bold text-[#0B1A33] mb-2">
-                      {opportunity.applications_count}
+                      {opportunity.signups_count || 0}
                     </div>
                     <div className="text-gray-600">Total Applications</div>
                   </div>
                   <div className="text-center p-6 bg-green-50 rounded-xl">
                     <div className="text-4xl font-bold text-green-700 mb-2">
-                      {opportunity.approved_count}
+                      {opportunity.approved_count || 0}
                     </div>
                     <div className="text-gray-600 flex items-center justify-center gap-2">
                       <FaCheckCircle className="text-green-600" />
@@ -249,7 +284,7 @@ export default function VolunteerDetail() {
                   </div>
                   <div className="text-center p-6 bg-yellow-50 rounded-xl">
                     <div className="text-4xl font-bold text-yellow-700 mb-2">
-                      {opportunity.pending_count}
+                      {opportunity.pending_count || 0}
                     </div>
                     <div className="text-gray-600 flex items-center justify-center gap-2">
                       <FaHourglassHalf className="text-yellow-600" />
@@ -351,8 +386,8 @@ export default function VolunteerDetail() {
               
               <div className="mt-8 pt-6 border-t border-gray-100">
                 <div className="text-sm text-gray-500">Posted by</div>
-                <div className="font-medium text-[#0B1A33]">{opportunity.created_by}</div>
-                <div className="text-sm text-gray-500 mt-1">{opportunity.created_at}</div>
+                <div className="font-medium text-[#0B1A33]">{opportunity.created_by_name || 'Community Member'}</div>
+                <div className="text-sm text-gray-500 mt-1">{formatDate(opportunity.created_at)}</div>
               </div>
             </motion.div>
             

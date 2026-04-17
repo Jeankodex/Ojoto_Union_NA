@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -19,125 +18,105 @@ import {
   FaList,
   FaUserCircle,
   FaPhone,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaSpinner
 } from "react-icons/fa";
+import api from "../../services/api"; // Import your API
 
 const Members = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState("grid"); // grid or list
-  const [sortBy, setSortBy] = useState("name"); // name, location, joined
+  const [viewMode, setViewMode] = useState("grid");
+  const [sortBy, setSortBy] = useState("name");
   const [filters, setFilters] = useState({
     location: "",
     profession: "",
     skills: []
   });
-  const [activeFilters, setActiveFilters] = useState([]);
 
-  // Mock data - in real app, this would come from API
+  // Fetch real members data from backend
   useEffect(() => {
-    setTimeout(() => {
-      setMembers([
-        {
-          id: 1,
-          fullName: "Dr. Chinedu Okeke",
-          profession: "Medical Doctor",
-          location: "New York, USA",
-          bio: "Specialized in Internal Medicine with 10+ years experience. Passionate about community health initiatives.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chinedu",
-          email: "chinedu.okeke@example.com",
-          phone: "+1 (555) 123-4567",
-          linkedin: "linkedin.com/in/chineduokeke",
-          website: "drchinedu.com",
-          skills: ["Medicine", "Public Health", "Mentorship"],
-          joinedDate: "2022-05-15",
-          isOnline: true
-        },
-        {
-          id: 2,
-          fullName: "Amina Bello",
-          profession: "Software Engineer",
-          location: "Toronto, Canada",
-          bio: "Full-stack developer specializing in React and Node.js. Currently working at a tech startup.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Amina",
-          email: "amina.bello@example.com",
-          phone: "+1 (416) 987-6543",
-          linkedin: "linkedin.com/in/aminabello",
-          website: "amina.dev",
-          skills: ["React", "Node.js", "Python", "AWS"],
-          joinedDate: "2023-01-20",
-          isOnline: false
-        },
-        {
-          id: 3,
-          fullName: "Tunde Adeyemi",
-          profession: "Business Consultant",
-          location: "Houston, Texas",
-          bio: "Helping businesses scale through strategic planning and digital transformation.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tunde",
-          email: "tunde.adeyemi@example.com",
-          phone: "+1 (713) 456-7890",
-          linkedin: "linkedin.com/in/tundeadeyemi",
-          website: "tundeconsulting.com",
-          skills: ["Business Strategy", "Digital Marketing", "Leadership"],
-          joinedDate: "2021-11-08",
-          isOnline: true
-        },
-        {
-          id: 4,
-          fullName: "Chioma Eze",
-          profession: "University Professor",
-          location: "London, UK",
-          bio: "Professor of African Studies. Research focuses on cultural preservation and diaspora communities.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chioma",
-          email: "chioma.eze@example.com",
-          phone: "+44 20 1234 5678",
-          linkedin: "linkedin.com/in/chiomaeze",
-          website: "profchioma.ac.uk",
-          skills: ["Research", "Teaching", "Cultural Studies"],
-          joinedDate: "2020-08-12",
-          isOnline: false
-        },
-        {
-          id: 5,
-          fullName: "Emeka Nwosu",
-          profession: "Architect",
-          location: "Atlanta, Georgia",
-          bio: "Sustainable architecture designer with award-winning projects across North America.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emeka",
-          email: "emeka.nwosu@example.com",
-          phone: "+1 (404) 555-1234",
-          linkedin: "linkedin.com/in/emekanwosu",
-          website: "nwosuarchitects.com",
-          skills: ["Architecture", "Sustainability", "Project Management"],
-          joinedDate: "2023-03-25",
-          isOnline: true
-        },
-        {
-          id: 6,
-          fullName: "Ngozi Okoro",
-          profession: "Nurse Practitioner",
-          location: "Chicago, Illinois",
-          bio: "Providing quality healthcare with focus on preventive medicine and patient education.",
-          profilePicture: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ngozi",
-          email: "ngozi.okoro@example.com",
-          phone: "+1 (312) 987-6543",
-          linkedin: "linkedin.com/in/ngoziokoro",
-          website: "",
-          skills: ["Healthcare", "Patient Care", "Education"],
-          joinedDate: "2022-09-30",
-          isOnline: false
-        }
-      ]);
-      setLoading(false);
-    }, 1500);
+    fetchMembers();
   }, []);
+
+  const fetchMembers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // First, get all user profiles
+      const response = await api.profile.getUser('all'); // Assuming you have an endpoint to get all users
+      
+      if (response.success) {
+        // Transform API data to match component structure
+        const membersData = response.data.map(user => ({
+          id: user.id,
+          fullName: `${user.first_name || ''} ${user.surname || ''}`.trim() || 'Anonymous Member',
+          profession: user.profession || 'Not specified',
+          location: user.location || 'Location not set',
+          bio: user.bio || 'No bio provided yet',
+          profilePicture: user.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+          email: user.email || '',
+          phone: user.phone || '',
+          linkedin: user.linkedin || '',
+          website: user.website || '',
+          skills: user.skills ? JSON.parse(user.skills) : [],
+          joinedDate: user.created_at || new Date().toISOString(),
+          isOnline: user.is_online || false
+        }));
+        
+        setMembers(membersData);
+      } else {
+        throw new Error(response.error || 'Failed to fetch members');
+      }
+    } catch (err) {
+      console.error('Error fetching members:', err);
+      setError(err.message || 'Failed to load members. Please try again.');
+      // Fallback: Use empty array
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // If your API doesn't have a getAll endpoint yet, use this fallback approach:
+  const fetchMembersFallback = async () => {
+    setLoading(true);
+    try {
+      // Get current user's profile first to test connection
+      const currentUser = await api.profile.getProfile();
+      
+      // Since we don't have a getAll endpoint, we'll show current user + empty state
+      if (currentUser.success) {
+        const user = currentUser.data;
+        setMembers([{
+          id: user.id,
+          fullName: `${user.first_name || ''} ${user.surname || ''}`.trim() || 'You',
+          profession: user.profession || 'Not specified',
+          location: user.location || 'Location not set',
+          bio: user.bio || 'No bio provided yet',
+          profilePicture: user.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+          email: user.email || '',
+          phone: user.phone || '',
+          linkedin: user.linkedin || '',
+          website: user.website || '',
+          skills: user.skills ? JSON.parse(user.skills) : [],
+          joinedDate: user.created_at || new Date().toISOString(),
+          isOnline: user.is_online || false
+        }]);
+      }
+    } catch (err) {
+      console.error('Error in fallback fetch:', err);
+      setError('Member directory feature is coming soon. Please check back later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter and sort members
   const filteredMembers = members
     .filter(member => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -151,18 +130,15 @@ const Members = () => {
       return true;
     })
     .filter(member => {
-      // Location filter
       if (filters.location && !member.location.toLowerCase().includes(filters.location.toLowerCase())) {
         return false;
       }
-      // Profession filter
       if (filters.profession && !member.profession.toLowerCase().includes(filters.profession.toLowerCase())) {
         return false;
       }
       return true;
     })
     .sort((a, b) => {
-      // Sorting
       switch (sortBy) {
         case "name":
           return a.fullName.localeCompare(b.fullName);
@@ -177,18 +153,59 @@ const Members = () => {
       }
     });
 
-  const handleConnect = (memberId) => {
-    // In real app, this would send connection request
-    alert(`Connection request sent to member ${memberId}`);
+  const handleConnect = async (memberId) => {
+    try {
+      // Send connection request
+      // You'll need to implement this API endpoint
+      alert(`Connection request would be sent to member ${memberId}`);
+    } catch (err) {
+      alert('Failed to send connection request');
+    }
   };
 
   const handleSendMessage = (memberId) => {
-    // In real app, this would open message modal
     alert(`Opening chat with member ${memberId}`);
   };
 
-  const locations = [...new Set(members.map(m => m.location.split(",")[0]))];
-  const professions = [...new Set(members.map(m => m.profession))];
+  const locations = [...new Set(members.map(m => m.location.split(",")[0]))].filter(Boolean);
+  const professions = [...new Set(members.map(m => m.profession))].filter(Boolean);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-4xl text-[#E4B84D] mx-auto mb-4" />
+          <p className="text-gray-600">Loading member directory...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
+        <div className="max-w-md text-center">
+          <div className="text-6xl mb-6">👥</div>
+          <h2 className="text-2xl font-bold text-[#0B1A33] mb-3">Member Directory Coming Soon</h2>
+          <p className="text-gray-600 mb-6">
+            The member directory feature is currently being developed. Check back soon to connect with other community members!
+          </p>
+          <div className="space-y-4">
+            <Link
+              to="/profile/edit"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] font-bold rounded-xl hover:shadow-lg transition-all"
+            >
+              <FaEdit />
+              Complete Your Profile First
+            </Link>
+            <p className="text-sm text-gray-500 mt-4">
+              Complete your profile to be ready when the directory launches!
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -232,7 +249,7 @@ const Members = () => {
               <div className="text-3xl font-bold mb-1">
                 {locations.length}
               </div>
-              <div className="text-gray-300 text-sm">Cities</div>
+              <div className="text-gray-300 text-sm">Locations</div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="text-3xl font-bold mb-1">
@@ -363,12 +380,7 @@ const Members = () => {
         </div>
 
         {/* Members Grid/List */}
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="w-12 h-12 border-4 border-[#E4B84D] border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading members...</p>
-          </div>
-        ) : filteredMembers.length > 0 ? (
+        {filteredMembers.length > 0 ? (
           <>
             {/* Results Count */}
             <div className="flex justify-between items-center mb-6">
@@ -412,12 +424,13 @@ const Members = () => {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
               <FaUsers className="text-4xl text-gray-400" />
             </div>
-            <h3 className="text-2xl font-semibold text-gray-700 mb-3">No Members Found</h3>
+            <h3 className="text-2xl font-semibold text-gray-700 mb-3">
+              {members.length === 0 ? 'No Members Available Yet' : 'No Members Found'}
+            </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-6">
-              {searchQuery || filters.location || filters.profession
-                ? "No members match your search criteria. Try adjusting your filters."
-                : "No public member profiles available yet."
-              }
+              {members.length === 0 
+                ? 'Be the first to create a profile and connect with future members!' 
+                : 'No members match your search criteria. Try adjusting your filters.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
@@ -434,7 +447,7 @@ const Members = () => {
                 className="px-6 py-3 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] font-bold rounded-xl hover:shadow-lg transition"
               >
                 <FaUserPlus className="inline mr-2" />
-                Create Your Profile
+                {members.length === 0 ? 'Create Your Profile' : 'Edit Your Profile'}
               </Link>
             </div>
           </div>

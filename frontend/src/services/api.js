@@ -46,16 +46,90 @@ export const authAPI = {
 export const profileAPI = {
     getProfile: () => apiRequest('/profile'),
     
-    updateProfile: (profileData) => apiRequest('/profile', {
-        method: 'PUT',
-        body: JSON.stringify(profileData)
-    }),
+    updateProfile: (profileData) => {
+        console.log('🔧 API: Sending profile data:', profileData);
+        console.log('🔧 API: contact_preferences value:', profileData.contact_preferences);
+        console.log('🔧 API: contact_preferences type:', typeof profileData.contact_preferences);
+        
+        // FORCE stringify everything to ensure it's JSON
+        const bodyData = JSON.stringify({
+            ...profileData,
+            // Double-check contact_preferences
+            contact_preferences: profileData.contact_preferences || '{"email":true,"phone":true,"linkedin":true,"inPerson":true}',
+            // Double-check privacy_settings
+            privacy_settings: profileData.privacy_settings || '{"profileVisibility":"members","contactVisibility":"members","activityVisibility":"public"}'
+        });
+        
+        console.log('🔧 API: Final body being sent:', bodyData);
+        
+        return apiRequest('/profile', {
+            method: 'PUT',
+            body: bodyData
+        });
+    },
     
-    getUser: (userId) => apiRequest(`/profile/${userId}`)
+    getUser: (userId) => apiRequest(`/profile/${userId}`),
+    
+    // ✅ ADD THIS - Get all profiles for member directory
+    getAllProfiles: () => apiRequest('/profile/all'),
+    
+    // === ADD UPLOAD METHODS HERE ===
+    uploadProfilePicture: async (file) => {
+        const formData = new FormData();
+        formData.append('profilePicture', file);
+
+        const response = await fetch(`${API_URL}/upload/profile-picture`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Profile picture upload failed');
+        }
+        return data;
+    },
+
+
+    uploadCoverPhoto: async (file) => {
+        const formData = new FormData();
+        formData.append('coverPhoto', file);
+
+        const response = await fetch(`${API_URL}/upload/cover-photo`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Cover photo upload failed');
+        }
+
+        return data;
+    },
+    updateProfileImages: async (data) => {
+        const response = await fetch(`${API_URL}/profile/update-images`, {  // Use API_URL
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(data)
+        });
+        return response.json();
+    }
+    // === END UPLOAD METHODS ===
 };
 
 // ============ COMMUNITY API ============ //
-
 export const communityAPI = {
     // POSTS
     getPosts: (filters = {}) => {
@@ -82,7 +156,6 @@ export const communityAPI = {
         body: JSON.stringify({ content })
     })
 };
-
 
 // ============ Q&A API ============ //
 export const qandaAPI = {
@@ -116,10 +189,42 @@ export const qandaAPI = {
     })
 };
 
+// ============ VOLUNTEER API ============ //
+export const volunteerAPI = {
+    // OPPORTUNITIES
+    getOpportunities: (filters = {}) => {
+        const params = new URLSearchParams(filters).toString();
+        return apiRequest(`/volunteer/opportunities?${params}`);
+    },
+    
+    createOpportunity: (opportunityData) => apiRequest('/volunteer/opportunities', {
+        method: 'POST',
+        body: JSON.stringify(opportunityData)
+    }),
+    
+    getOpportunity: (opportunityId) => apiRequest(`/volunteer/opportunities/${opportunityId}`),
+    
+    // APPLICATIONS
+    applyToOpportunity: (opportunityId, applicationData) => apiRequest(`/volunteer/opportunities/${opportunityId}/apply`, {
+        method: 'POST',
+        body: JSON.stringify(applicationData)
+    }),
+    
+    getUserApplications: () => apiRequest('/volunteer/applications/my'),
+    
+    getOpportunityApplications: (opportunityId) => apiRequest(`/volunteer/opportunities/${opportunityId}/applications`),
+    
+    updateApplicationStatus: (applicationId, status) => apiRequest(`/volunteer/applications/${applicationId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+    })
+};
 
+// Export everything properly
 export default {
     auth: authAPI,
     profile: profileAPI,
     community: communityAPI,
-    qanda: qandaAPI  // Add this
+    qanda: qandaAPI,
+    volunteer: volunteerAPI
 };

@@ -1,4 +1,5 @@
-const { run, get, all } = require('../utils/db');
+// models/Community.js
+const { query } = require('../database/init'); // ← Changed import
 
 class Community {
   // CREATE A POST
@@ -8,21 +9,22 @@ class Community {
     const sql = `
       INSERT INTO community_posts 
       (user_id, title, content, category, tags, attachments, is_pinned, is_urgent)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id
     `;
     
-    const result = await run(sql, [
+    const result = await query(sql, [
       userId,
       title,
       content,
       category,
       JSON.stringify(tags || []),
       JSON.stringify([]), // attachments - empty for now
-      is_pinned ? 1 : 0,
-      is_urgent ? 1 : 0
+      is_pinned,
+      is_urgent
     ]);
     
-    return { id: result.id, ...postData, user_id: userId };
+    return { id: result.rows[0].id, ...postData, user_id: userId };
   }
   
   // GET ALL POSTS WITH FILTERS
@@ -35,30 +37,33 @@ class Community {
       limit = 20 
     } = filters;
     
-    let query = `
+    let sql = `
       SELECT 
         p.*,
         u.username,
         u.email,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM community_posts p
       JOIN users u ON p.user_id = u.id
+      LEFT JOIN profiles prof ON u.id = prof.user_id
       WHERE 1=1
     `;
     
     const params = [];
+    let paramIndex = 1;
     
     // Add filters
     if (category && category !== 'all') {
-      query += ' AND p.category = ?';
+      sql += ` AND p.category = $${paramIndex++}`;
       params.push(category);
     }
     
     if (search) {
-      query += ' AND (p.title LIKE ? OR p.content LIKE ?)';
+      sql += ` AND (p.title ILIKE $${paramIndex} OR p.content ILIKE $${paramIndex + 1})`;
       const searchTerm = `%${search}%`;
       params.push(searchTerm, searchTerm);
+      paramIndex += 2;
     }
     
     // Sorting
@@ -68,15 +73,16 @@ class Community {
       most_liked: 'p.likes DESC'
     };
     
-    query += ` ORDER BY ${sortOptions[sort] || 'p.created_at DESC'}`;
+    sql += ` ORDER BY ${sortOptions[sort] || 'p.created_at DESC'}`;
     
     // Pagination
     const offset = (page - 1) * limit;
-    query += ' LIMIT ? OFFSET ?';
+    sql += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(limit, offset);
     
     // Get posts
-    const posts = await all(query, params);
+    const postsResult = await query(sql, params);
+    const posts = postsResult.rows;
     
     // Parse JSON fields
     const parsedPosts = posts.map(post => ({
@@ -90,22 +96,23 @@ class Community {
     }));
     
     // Get total count
-    let countQuery = `SELECT COUNT(*) as total FROM community_posts p WHERE 1=1`;
+    let countSql = `SELECT COUNT(*) as total FROM community_posts p WHERE 1=1`;
     const countParams = [];
+    let countIndex = 1;
     
     if (category && category !== 'all') {
-      countQuery += ' AND p.category = ?';
+      countSql += ` AND p.category = $${countIndex++}`;
       countParams.push(category);
     }
     
     if (search) {
-      countQuery += ' AND (p.title LIKE ? OR p.content LIKE ?)';
+      countSql += ` AND (p.title ILIKE $${countIndex} OR p.content ILIKE $${countIndex + 1})`;
       const searchTerm = `%${search}%`;
       countParams.push(searchTerm, searchTerm);
     }
     
-    const countResult = await get(countQuery, countParams);
-    const total = countResult.total;
+    const countResult = await query(countSql, countParams);
+    const total = parseInt(countResult.rows[0].total);
     
     return {
       posts: parsedPosts,
@@ -118,54 +125,64 @@ class Community {
   
   // GET COMMENTS FOR A POST
   static async getComments(postId) {
-    const query = `
+    const sql = `
       SELECT 
         c.*,
         u.username,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM comments c
       JOIN users u ON c.user_id = u.id
-      WHERE c.post_id = ?
+      LEFT JOIN profiles prof ON u.id = prof.user_id
+      WHERE c.post_id = $1
       ORDER BY c.created_at ASC
     `;
     
-    return await all(query, [postId]);
+    const result = await query(sql, [postId]);
+    return result.rows;
   }
   
   // ADD A COMMENT
   static async addComment(postId, userId, content) {
     const sql = `
       INSERT INTO comments (post_id, user_id, content)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
+      RETURNING id
     `;
     
-    const result = await run(sql, [postId, userId, content]);
-    return { id: result.id, post_id: postId, user_id: userId, content };
+    const result = await query(sql, [postId, userId, content]);
+    return { 
+      id: result.rows[0].id, 
+      post_id: postId, 
+      user_id: userId, 
+      content 
+    };
   }
   
   // LIKE A POST
   static async likePost(postId) {
-    const sql = `UPDATE community_posts SET likes = likes + 1 WHERE id = ?`;
-    const result = await run(sql, [postId]);
-    return result.changes > 0;
+    const sql = `UPDATE community_posts SET likes = likes + 1 WHERE id = $1`;
+    const result = await query(sql, [postId]);
+    return result.rowCount > 0;
   }
   
   // GET SINGLE POST
   static async getPostById(postId) {
-    const query = `
+    const sql = `
       SELECT 
         p.*,
         u.username,
         u.email,
-        u.profile_picture as author_avatar,
-        u.first_name || ' ' || u.surname as author_name
+        prof.profile_picture as author_avatar,
+        CONCAT(u.first_name, ' ', u.surname) as author_name
       FROM community_posts p
       JOIN users u ON p.user_id = u.id
-      WHERE p.id = ?
+      LEFT JOIN profiles prof ON u.id = prof.user_id
+      WHERE p.id = $1
     `;
     
-    const post = await get(query, [postId]);
+    const result = await query(sql, [postId]);
+    let post = result.rows[0];
     
     if (post) {
       post.tags = post.tags ? JSON.parse(post.tags) : [];

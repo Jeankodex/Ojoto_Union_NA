@@ -21,6 +21,7 @@ import QuestionDetail from "./pages/questions/QuestionDetail";
 import Volunteer from "./pages/volunteer/Volunteer";
 import VolunteerDetail from "./pages/volunteer/VolunteerDetail";
 import ApplyVolunteer from "./pages/volunteer/ApplyVolunteer";
+import CreateVolunteer from "./pages/volunteer/CreateVolunteer"; // ✅ ADD THIS IMPORT
 
 // Create a ProtectedRoute component
 const ProtectedRoute = ({ children }) => {
@@ -74,16 +75,30 @@ function App() {
                 <EditProfile />
               </ProtectedRoute>
             } />
+            
+            {/* Volunteer Routes - FIXED ORDER */}
             <Route path="/volunteer" element={
               <ProtectedRoute>
                 <Volunteer />
               </ProtectedRoute>
             } />
-            <Route path="/post_opportunity" element={
+            <Route path="/volunteer/create" element={ // ✅ ADD THIS ROUTE (BEFORE :id)
               <ProtectedRoute>
-                <PostOpportunity />
+                <CreateVolunteer />
               </ProtectedRoute>
             } />
+            <Route path="/volunteer/:id" element={
+              <ProtectedRoute>
+                <VolunteerDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/volunteer/:id/apply" element={
+              <ProtectedRoute>
+                <ApplyVolunteer />
+              </ProtectedRoute>
+            } />
+            
+            {/* Questions Routes */}
             <Route path="/questions" element={
               <ProtectedRoute>
                 <Questions />
@@ -99,14 +114,11 @@ function App() {
                 <QuestionDetail />
               </ProtectedRoute>
             } />
-            <Route path="/volunteer/:id" element={
+            
+            {/* Old route - keep for compatibility or remove */}
+            <Route path="/post_opportunity" element={
               <ProtectedRoute>
-                <VolunteerDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/volunteer/:id/apply" element={
-              <ProtectedRoute>
-                <ApplyVolunteer />
+                <PostOpportunity />
               </ProtectedRoute>
             } />
           </Routes>
