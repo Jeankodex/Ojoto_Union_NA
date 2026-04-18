@@ -1,7 +1,7 @@
 
 //services/api.js
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://ojoto-union-community-platform.onrender.com/api';
 
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {

@@ -25,7 +25,7 @@ const app = express();
 
 // CORS: Allow localhost for dev, Vercel for production
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL,
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
