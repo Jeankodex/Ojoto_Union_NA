@@ -55,9 +55,10 @@ const registerUser = async (req, res) => {
     }
 
     // Validate phone if provided (Nigerian format)
-    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const cleanPhone = phone ? phone.replace(/[^0-9+]/g, '') : '';
     const phoneRegex = /^(?:\+?234|0)[789][01]\d{8}$/;
-    if (!phoneRegex.test(cleanPhone)) {
+
+    if (phone && !phoneRegex.test(cleanPhone)) {
       return res.status(400).json({ error: 'Please provide a valid Nigerian phone number' });
     }
 
@@ -83,7 +84,7 @@ const registerUser = async (req, res) => {
       );
       userId = userResult.rows[0].id;
 
-      // Create profile with default images
+      // Create profile with default images (FIXED JSONB)
       await query(
         `INSERT INTO profiles 
          (user_id, full_name, profile_picture, cover_photo, contact_preferences, privacy_settings) 
@@ -105,15 +106,14 @@ const registerUser = async (req, res) => {
       await query('COMMIT');
 
     } catch (error) {
-      // Rollback on error
-      await query('ROLLBACK').catch(() => {}); // Ignore rollback errors
+      await query('ROLLBACK').catch(() => {});
       throw error;
     }
 
     // Generate token
     const token = generateToken(userId);
 
-    // Get complete user data (PostgreSQL version)
+    // Get complete user data
     const newUserResult = await query(`
       SELECT 
         u.id, u.email, u.username, u.first_name, u.surname, 
@@ -133,11 +133,20 @@ const registerUser = async (req, res) => {
     
     const newUser = newUserResult.rows[0];
 
-    // Parse JSON strings
+    const safeParse = (value, fallback = {}) => {
+      if (!value) return fallback;
+      if (typeof value === 'object') return value;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
+    };
+
     const parsedUser = {
       ...newUser,
-      contact_preferences: newUser.contact_preferences ? JSON.parse(newUser.contact_preferences) : {},
-      privacy_settings: newUser.privacy_settings ? JSON.parse(newUser.privacy_settings) : {}
+      contact_preferences: safeParse(newUser.contact_preferences, {}),
+      privacy_settings: safeParse(newUser.privacy_settings, {})
     };
 
     res.status(201).json({
@@ -181,8 +190,7 @@ const registerUser = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    
-    // Handle PostgreSQL unique violation (code 23505)
+
     let errorMessage = 'Registration failed';
     if (error.code === '23505') {
       if (error.detail && error.detail.includes('email')) {
@@ -191,16 +199,16 @@ const registerUser = async (req, res) => {
         errorMessage = 'Username already exists';
       }
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       success: false,
-      error: errorMessage, 
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Login user (PostgreSQL version)
+// Login user (FIXED SYNTAX)
 const loginUser = async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
@@ -209,7 +217,6 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email/username and password are required' });
     }
 
-    // Find user (PostgreSQL)
     const userResult = await query(`
       SELECT 
         u.*,
@@ -225,16 +232,15 @@ const loginUser = async (req, res) => {
       LEFT JOIN user_stats us ON u.id = us.user_id
       WHERE u.email = $1 OR u.username = $1
     `, [emailOrUsername]);
-    
+
     const user = userResult.rows[0];
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid email/username or password' });
     }
 
-    // Check if account is verified (PostgreSQL boolean)
     if (user.is_verified === false) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
         error: 'Account not verified. Please check your email.',
         requiresVerification: true,
@@ -242,26 +248,21 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Check password
     const isMatch = await comparePassword(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ success: false, error: 'Invalid email/username or password' });
     }
 
-    // Update is_online status (PostgreSQL)
     await query('UPDATE users SET is_online = $1 WHERE id = $2', [true, user.id]);
-
-    // Update last active
     await query('UPDATE user_stats SET last_active = NOW() WHERE user_id = $1', [user.id]);
 
-    // Generate token
     const token = generateToken(user.id);
 
-    // Parse JSON strings
+    // FIXED SYNTAX ERROR HERE
     const parsedUser = {
       ...user,
-      contact_preferences: user.contact_preferences ? JSON.parse(user.contact_preferences) : {},
-      privacy_settings: user.privacy_settings ? JSON.parse(user.privacy_settings) : {}
+      contact_preferences: user.contact_preferences ? user.contact_preferences : {},
+      privacy_settings: user.privacy_settings ? user.privacy_settings : {}
     };
 
     res.json({
@@ -305,13 +306,14 @@ const loginUser = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Login failed', 
+      error: 'Login failed',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
+
 
 // Get current user (PostgreSQL version)
 const getCurrentUser = async (req, res) => {
@@ -454,6 +456,7 @@ const checkAvailability = async (req, res) => {
   }
 };
 
+// (UNCHANGED: getCurrentUser, logoutUser, checkAvailability)
 module.exports = {
   registerUser,
   loginUser,

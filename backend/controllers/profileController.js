@@ -128,6 +128,12 @@ const updateProfile = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const userId = req.params.id;
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid user ID'
+      });
+    }
     
     const result = await query(`
       SELECT u.*, p.*, us.*

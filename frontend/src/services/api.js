@@ -1,6 +1,8 @@
 
 //services/api.js
-const API_URL = import.meta.env.VITE_API_URL;
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
@@ -129,7 +131,6 @@ export const profileAPI = {
     }
     // === END UPLOAD METHODS ===
 };
-
 // ============ COMMUNITY API ============ //
 export const communityAPI = {
     // POSTS
