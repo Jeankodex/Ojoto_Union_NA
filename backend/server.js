@@ -26,8 +26,9 @@ const app = express();
 // CORS: Allow localhost for dev, Vercel for production
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL || "http://localhost:5173",
-    "https://ojoto-union-community-platform.onrender.com"
+    process.env.FRONTEND_URL,
+    "http://localhost:5173"
+    
   ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
