@@ -59,16 +59,15 @@ const MemberDetail = () => {
 
         setMember({
           ...user,
-          skills: JSON.parse(user.skills || "[]"),
-          education: JSON.parse(user.education || "[]"),
-          experience: JSON.parse(user.experience || "[]"),
-          languages: JSON.parse(user.languages || "[]"),
+          skills: Array.isArray(user.skills) ? user.skills : JSON.parse(user.skills || "[]"),
+          education: Array.isArray(user.education) ? user.education : JSON.parse(user.education || "[]"),
+          experience: Array.isArray(user.experience) ? user.experience : JSON.parse(user.experience || "[]"),
+          languages: Array.isArray(user.languages) ? user.languages : JSON.parse(user.languages || "[]"),
 
-          contact_preferences:
-            typeof user.contact_preferences === "string"
+          contact_preferences: typeof user.contact_preferences === "string"
             ? JSON.parse(user.contact_preferences)
-            : user.contact_preferences || {},
-            });
+            : (user.contact_preferences || {})
+        });
 
         checkConnectionStatus(user);
       } catch (err) {
@@ -249,7 +248,7 @@ END:VCARD`;
         <div className="absolute inset-0 bg-black/40"></div>
         {member.cover_photo && member.cover_photo !== 'default-cover.jpg' ? (
           <img 
-            src={`/uploads/cover-photos/${member.cover_photo}`}
+            src={`${api.uploadBaseUrl}/uploads/cover-photos/${member.cover_photo}`}
             alt="Cover" 
             className="absolute inset-0 w-full h-full object-cover opacity-50"
             onError={(e) => {
@@ -294,7 +293,7 @@ END:VCARD`;
               <div className="relative">
                 <img 
                   src={member.profile_picture && member.profile_picture !== 'default.png' 
-                    ? `/uploads/profile-pictures/${member.profile_picture}`
+                    ? `${api.uploadBaseUrl}/uploads/profile-pictures/${member.profile_picture}`
                     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.full_name || member.username}`
                   }
                   alt={member.full_name}

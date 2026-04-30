@@ -27,7 +27,7 @@ const app = express();
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || "http://localhost:5173",
-    "https://ojotounioncommunityplatform.vercel.app"
+    "https://ojoto-union-community-platform.onrender.com"
   ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']

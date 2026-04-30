@@ -46,26 +46,31 @@ const Members = () => {
     setError(null);
     try {
       // First, get all user profiles
-      const response = await api.profile.getUser('all'); // Assuming you have an endpoint to get all users
+      const response = await api.profile.getAllProfiles();
       
-      if (response.success) {
-        // Transform API data to match component structure
-        const membersData = response.data.map(user => ({
-          id: user.id,
-          fullName: `${user.first_name || ''} ${user.surname || ''}`.trim() || 'Anonymous Member',
-          profession: user.profession || 'Not specified',
-          location: user.location || 'Location not set',
-          bio: user.bio || 'No bio provided yet',
-          profilePicture: user.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
-          email: user.email || '',
-          phone: user.phone || '',
-          linkedin: user.linkedin || '',
-          website: user.website || '',
-          skills: user.skills ? JSON.parse(user.skills) : [],
-          joinedDate: user.created_at || new Date().toISOString(),
-          isOnline: user.is_online || false
-        }));
-        
+      if (response.success && Array.isArray(response.data)) {
+        const membersData = response.data.map(user => {
+          const profilePicture = user.profile_picture
+            ? `${api.uploadBaseUrl}/uploads/profile-pictures/${user.profile_picture}`
+            : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+          return {
+            id: user.id,
+            fullName: user.full_name || `${user.first_name || ''} ${user.surname || ''}`.trim() || 'Anonymous Member',
+            profession: user.profession || 'Not specified',
+            location: user.location || 'Location not set',
+            bio: user.bio || 'No bio provided yet',
+            profilePicture,
+            email: user.email || '',
+            phone: user.phone || '',
+            linkedin: user.linkedin || '',
+            website: user.website || '',
+            skills: Array.isArray(user.skills) ? user.skills : [],
+            joinedDate: user.created_at || new Date().toISOString(),
+            isOnline: user.is_online || false
+          };
+        });
+
         setMembers(membersData);
       } else {
         throw new Error(response.error || 'Failed to fetch members');

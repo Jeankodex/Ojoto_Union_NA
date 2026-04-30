@@ -31,6 +31,7 @@ const EditProfile = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [profilePicture, setProfilePicture] = useState("https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser");
   const [coverPhoto, setCoverPhoto] = useState(null);
   const [skills, setSkills] = useState([]);
@@ -83,7 +84,9 @@ const EditProfile = () => {
   const fetchProfile = async () => {
     setIsLoading(true);
     try {
+      console.log('🔄 Fetching profile from:', api.profile.getProfile.toString());
       const response = await api.profile.getProfile();
+      console.log('✅ Profile fetch response:', response);
 
       if (response.success && response.profile) {
         const profile = response.profile;
@@ -123,29 +126,49 @@ const EditProfile = () => {
                 },
         });
 
-        // Set arrays from API response (no changes here)
-        setSkills(JSON.parse(profile.skills || '[]'));
-        setEducation(JSON.parse(profile.education || '[]'));
-        setExperience(JSON.parse(profile.experience || '[]'));
-        setLanguages(JSON.parse(profile.languages || '[]'));
+        // Set arrays from API response - they're already parsed by backend
+        setSkills(Array.isArray(profile.skills) ? profile.skills : JSON.parse(profile.skills || '[]'));
+        setEducation(Array.isArray(profile.education) ? profile.education : JSON.parse(profile.education || '[]'));
+        setExperience(Array.isArray(profile.experience) ? profile.experience : JSON.parse(profile.experience || '[]'));
+        setLanguages(Array.isArray(profile.languages) ? profile.languages : JSON.parse(profile.languages || '[]'));
           
        // FIX 1: Set profile picture with correct path
         if (profile.profile_picture && profile.profile_picture !== 'default.png') {
-          setProfilePicture(`/uploads/profile-pictures/${profile.profile_picture}`);
+          setProfilePicture(`${api.uploadBaseUrl}/uploads/profile-pictures/${profile.profile_picture}`);
         } else {
           setProfilePicture("https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser");
         }
       
         // FIX 2: Set cover photo if available
         if (profile.cover_photo && profile.cover_photo !== 'default-cover.jpg') {
-          setCoverPhoto(`/uploads/cover-photos/${profile.cover_photo}`);
+          setCoverPhoto(`${api.uploadBaseUrl}/uploads/cover-photos/${profile.cover_photo}`);
         } else {
           setCoverPhoto(null);
         }
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error);
-      alert('Failed to load profile data. Please try again.');
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        api_url: import.meta.env.VITE_API_URL
+      });
+      
+      // Check if backend is reachable
+      try {
+        const healthCheck = await fetch(`${import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '')}/api/health`);
+        const healthData = await healthCheck.json();
+        console.log('Backend health check:', healthData);
+        
+        if (!healthCheck.ok) {
+          setError(`Backend error: ${healthData.message || 'Unknown error'}`);
+        } else {
+          setError(`Auth error: ${error.message}`);
+        }
+      } catch (healthError) {
+        console.error('Backend unreachable:', healthError);
+        setError(`❌ Cannot connect to backend. Make sure the backend server is running on ${import.meta.env.VITE_API_URL}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +215,7 @@ const EditProfile = () => {
         // ✅ Use absolute path for preview
         const imageUrl = response.url.startsWith('http')
           ? response.url
-          : `/uploads/profile-pictures/${response.filename}`;
+          : `${api.uploadBaseUrl}${response.url}`;
 
         setProfilePicture(imageUrl);       // for immediate preview
         setUploadedProfilePicture(response.filename); // for DB update
@@ -231,7 +254,10 @@ const EditProfile = () => {
         const response = await api.profile.uploadCoverPhoto(file);
 
         if (response.success) {
-            setCoverPhoto(response.url); // for display
+            const imageUrl = response.url.startsWith('http')
+              ? response.url
+              : `${api.uploadBaseUrl}${response.url}`;
+            setCoverPhoto(imageUrl); // for display
             setUploadedCoverPhoto(response.filename); // for DB
         } else {
             alert(`Failed to upload: ${response.message}`);
@@ -305,6 +331,7 @@ const EditProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
     
     try {
       const profileData = {
@@ -342,16 +369,23 @@ const EditProfile = () => {
       
       
       if (response.success) {
+        console.log('✅ Profile updated, user object:', user);
         if (formData.phone !== user?.phone) {
           updateUser({ phone: formData.phone });
         }
         
         alert("Profile updated successfully!");
-        navigate(`/members/${user?.id}`);
+        const userId = user?.id;
+        console.log('🔄 Redirecting to /members/' + userId);
+        if (userId) {
+          navigate(`/members/${userId}`);
+        } else {
+          navigate('/members');
+        }
       }
     } catch (error) {
       console.error('Failed to update profile:', error);
-      alert(`Failed to update profile: ${error.message}`);
+      setError(`Failed to update profile: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -372,9 +406,29 @@ const EditProfile = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <FaSpinner className="w-12 h-12 text-[#E4B84D] animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading profile data...</p>
+        <div className="text-center max-w-md">
+          {error ? (
+            <>
+              <div className="text-6xl mb-4">⚠️</div>
+              <p className="text-gray-800 font-semibold mb-2">Error Loading Profile</p>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <button
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  fetchProfile();
+                }}
+                className="px-4 py-2 bg-[#E4B84D] text-[#0B1A33] font-semibold rounded-lg hover:bg-[#FFD166] transition"
+              >
+                Try Again
+              </button>
+            </>
+          ) : (
+            <>
+              <FaSpinner className="w-12 h-12 text-[#E4B84D] animate-spin mx-auto mb-4" />
+              <p className="text-gray-600">Loading profile data...</p>
+            </>
+          )}
         </div>
       </div>
     );
@@ -400,6 +454,23 @@ const EditProfile = () => {
             <p className="text-gray-600">Update your profile information and customize your visibility</p>
           </div>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3">
+            <div className="text-2xl">⚠️</div>
+            <div className="flex-1">
+              <p className="font-semibold text-red-800">Error</p>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-700 transition"
+            >
+              <FaTimes size={18} />
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Cover & Profile Photos */}

@@ -5,9 +5,9 @@ const router = express.Router();
 const { getProfile, updateProfile, getUserById, getAllProfiles } = require('../controllers/profileController');
 const { verifyToken } = require('../utils/auth');
 
+router.get('/all', getAllProfiles); // Note: This is public - MUST BE BEFORE /:id
 router.get('/', verifyToken, getProfile);       // GET /api/profile
 router.put('/', verifyToken, updateProfile);    // PUT /api/profile
-router.get('/all', getAllProfiles); // Note: This is public
 router.get('/:id', verifyToken, getUserById);   // GET /api/profile/:id
 
 

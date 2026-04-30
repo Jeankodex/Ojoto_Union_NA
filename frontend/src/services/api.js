@@ -1,7 +1,8 @@
 
 //services/api.js
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://ojoto-union-community-platform.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = API_URL ? API_URL.replace(/\/api\/?$/, '') : '';
 
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {
@@ -16,18 +17,35 @@ const apiRequest = async (endpoint, options = {}) => {
         headers['Authorization'] = `Bearer ${token}`;
     }
     
-    const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers,
-        credentials: 'include'
-    });
-    
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'API request failed');
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            headers,
+            credentials: 'include'
+        });
+        
+        // Try to parse response as JSON
+        let data;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // If not JSON, get text and show error
+            const text = await response.text();
+            console.error('Non-JSON response:', text);
+            throw new Error(`API returned non-JSON response: ${text.substring(0, 100)}`);
+        }
+        
+        if (!response.ok) {
+            throw new Error(data.error || data.message || 'API request failed');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error(`API Error on ${endpoint}:`, error.message);
+        throw error;
     }
-    
-    return response.json();
 };
 
 // Auth API
@@ -228,5 +246,6 @@ export default {
     profile: profileAPI,
     community: communityAPI,
     qanda: qandaAPI,
-    volunteer: volunteerAPI
+    volunteer: volunteerAPI,
+    uploadBaseUrl: API_BASE_URL
 };
