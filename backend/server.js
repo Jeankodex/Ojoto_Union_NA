@@ -26,13 +26,13 @@ const app = express();
 // CORS: Allow localhost for dev, Vercel for production
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL,
-    "http://localhost:5173"
-    
+    process.env.FRONTEND_URL || "http://localhost:5173",
+    "https://ojotounioncommunityplatform.vercel.app"
   ],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
