@@ -10,6 +10,8 @@ import {
 import { Link } from "react-router-dom";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -44,68 +46,35 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch all dashboard data in parallel
-      const [
-        postsResponse,
-        questionsResponse,
-        eventsResponse,
-        statsResponse,
-        activityResponse,
-        notificationsResponse
-      ] = await Promise.all([
-        axios.get('/api/community/posts?limit=3'),
-        axios.get('/api/questions?limit=2'),
-        axios.get('/api/events/upcoming?limit=3'),
-        axios.get('/api/dashboard/stats'),
-        axios.get('/api/activity/recent'),
-        axios.get('/api/notifications/count')
-      ]);
-
-      // Set real data
-      setRecentPosts(postsResponse.data.data?.posts || []);
-      setRecentQuestions(questionsResponse.data.data?.questions || []);
-      setUpcomingEvents(eventsResponse.data.data || []);
-      setCommunityStats(statsResponse.data.data || {});
-      setUserActivity(activityResponse.data.data || []);
-      setNotificationsCount(notificationsResponse.data.count || 0);
-
-      // Update user stats
-      setStats({
-        posts: statsResponse.data.data?.userPosts || 0,
-        connections: statsResponse.data.data?.connections || 0,
-        events: eventsResponse.data.data?.length || 0,
-        contributions: statsResponse.data.data?.contributions || 0
+      const response = await axios.get(`${API_URL}/dashboard/stats`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
       });
 
+      const data = response.data.data || {};
+      const userStats = data.userStats || {};
+
+      setRecentPosts(data.recentPosts || []);
+      setRecentQuestions(data.recentQuestions || []);
+      setUpcomingEvents(data.upcomingEvents || []);
+      setCommunityStats(data.overview || {});
+      setUserActivity(data.userActivity || []);
+      setNotificationsCount(data.notificationsCount || 0);
+
+      setStats({
+        posts: userStats.posts_count || 0,
+        connections: userStats.connections_count || 0,
+        events: userStats.events_attended || 0,
+        contributions:
+          (userStats.posts_count || 0) +
+          (userStats.comments_count || 0) +
+          (userStats.questions_count || 0) +
+          (userStats.answers_count || 0)
+      });
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      // Keep mock data as fallback
-      setUpcomingEvents([
-        {
-          id: 1,
-          title: "Annual General Meeting",
-          date: "Dec 15, 2024",
-          time: "6:00 PM EST",
-          location: "Virtual & NYC",
-          type: "meeting"
-        },
-        {
-          id: 2,
-          title: "Christmas Party",
-          date: "Dec 20, 2024",
-          time: "7:00 PM EST",
-          location: "Community Center",
-          type: "social"
-        },
-        {
-          id: 3,
-          title: "New Year Networking",
-          date: "Jan 10, 2025",
-          time: "5:30 PM EST",
-          location: "Chicago Hub",
-          type: "networking"
-        }
-      ]);
+      console.error('Error fetching dashboard data:', error);
+      setUpcomingEvents([]);
     } finally {
       setLoading(false);
     }
@@ -113,7 +82,7 @@ export default function Dashboard() {
 
   const handleLikePost = async (postId) => {
     try {
-      await axios.post(`/api/community/posts/${postId}/like`);
+      await axios.post(`${API_URL}/community/posts/${postId}/like`);
       fetchDashboardData(); // Refresh data
     } catch (error) {
       console.error("Error liking post:", error);

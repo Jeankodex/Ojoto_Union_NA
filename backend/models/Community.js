@@ -1,6 +1,20 @@
 // models/Community.js
 const { query } = require('../database/init'); // ← Changed import
 
+
+const parseJsonField = (value) => {
+  if (value == null) return [];
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      console.warn('JSON parse warning:', err.message, 'for value:', value);
+      return [];
+    }
+  }
+  return value;
+};
+
 class Community {
   // CREATE A POST
   static async createPost(userId, postData) {
@@ -23,6 +37,11 @@ class Community {
       is_pinned,
       is_urgent
     ]);
+
+    await query(
+      `UPDATE user_stats SET posts_count = posts_count + 1 WHERE user_id = $1`,
+      [userId]
+    );
     
     return { id: result.rows[0].id, ...postData, user_id: userId };
   }
@@ -87,8 +106,8 @@ class Community {
     // Parse JSON fields
     const parsedPosts = posts.map(post => ({
       ...post,
-      tags: post.tags ? JSON.parse(post.tags) : [],
-      attachments: post.attachments ? JSON.parse(post.attachments) : [],
+      tags: parseJsonField(post.tags),
+      attachments: parseJsonField(post.attachments),
       is_pinned: Boolean(post.is_pinned),
       is_urgent: Boolean(post.is_urgent),
       likes: post.likes || 0,
@@ -144,18 +163,33 @@ class Community {
   
   // ADD A COMMENT
   static async addComment(postId, userId, content) {
-    const sql = `
+    const insertSql = `
       INSERT INTO comments (post_id, user_id, content)
       VALUES ($1, $2, $3)
-      RETURNING id
+      RETURNING id, created_at
     `;
     
-    const result = await query(sql, [postId, userId, content]);
+    const result = await query(insertSql, [postId, userId, content]);
+
+    // Keep comments_count in sync
+    const updateSql = `
+      UPDATE community_posts
+      SET comments_count = comments_count + 1
+      WHERE id = $1
+    `;
+    await query(updateSql, [postId]);
+
+    await query(
+      `UPDATE user_stats SET comments_count = comments_count + 1 WHERE user_id = $1`,
+      [userId]
+    );
+
     return { 
       id: result.rows[0].id, 
       post_id: postId, 
       user_id: userId, 
-      content 
+      content,
+      created_at: result.rows[0].created_at
     };
   }
   
@@ -185,8 +219,8 @@ class Community {
     let post = result.rows[0];
     
     if (post) {
-      post.tags = post.tags ? JSON.parse(post.tags) : [];
-      post.attachments = post.attachments ? JSON.parse(post.attachments) : [];
+      post.tags = parseJsonField(post.tags);
+      post.attachments = parseJsonField(post.attachments);
       post.is_pinned = Boolean(post.is_pinned);
       post.is_urgent = Boolean(post.is_urgent);
     }

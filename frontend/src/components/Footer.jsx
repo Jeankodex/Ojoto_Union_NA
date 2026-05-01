@@ -78,7 +78,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="relative bg-gradient-to-b from-[#0B1A33] via-[#13274B] to-[#0B1A33] text-white pt-16 pb-8 mt-auto overflow-hidden">
+    <footer id="app-footer" className="relative bg-gradient-to-b from-[#0B1A33] via-[#13274B] to-[#0B1A33] text-white pt-16 pb-8 mt-auto overflow-hidden">
       
       {/* Decorative Elements */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#E4B84D] to-transparent"></div>

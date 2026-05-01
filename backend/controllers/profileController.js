@@ -194,9 +194,7 @@ const getAllProfiles = async (req, res) => {
         p.privacy_settings
       FROM users u
       LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE u.role = 'member' 
-      AND (p.privacy_settings IS NULL OR 
-           p.privacy_settings->>'profileVisibility' IN ('public', 'members'))
+      WHERE u.role = 'member'
       ORDER BY u.created_at DESC
     `);
     

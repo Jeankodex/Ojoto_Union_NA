@@ -20,6 +20,11 @@ class QandA {
       category,
       is_urgent
     ]);
+
+    await query(
+      `UPDATE user_stats SET questions_count = questions_count + 1 WHERE user_id = $1`,
+      [userId]
+    );
     
     return { id: result.rows[0].id, ...questionData, user_id: userId };
   }
@@ -157,6 +162,12 @@ class QandA {
     `;
     
     const result = await query(sql, [questionId, userId, content]);
+
+    await query(
+      `UPDATE user_stats SET answers_count = answers_count + 1 WHERE user_id = $1`,
+      [userId]
+    );
+
     return { 
       id: result.rows[0].id, 
       question_id: questionId, 

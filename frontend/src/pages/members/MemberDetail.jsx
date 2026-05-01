@@ -81,8 +81,7 @@ const MemberDetail = () => {
   }, [id]); 
 
   const checkConnectionStatus = async () => {
-    // This would be a real API call to check if users are connected
-    // For now, using mock logic
+    // This is a placeholder until a real connection status API endpoint exists
     if (currentUser && currentUser.id === parseInt(id)) {
       setIsConnected(true);
       setConnectionStatus('self');

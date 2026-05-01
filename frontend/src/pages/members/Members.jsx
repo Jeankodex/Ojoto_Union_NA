@@ -16,7 +16,6 @@ import {
   FaSortAmountDown,
   FaThLarge,
   FaList,
-  FaUserCircle,
   FaPhone,
   FaCalendarAlt,
   FaSpinner
@@ -45,19 +44,27 @@ const Members = () => {
     setLoading(true);
     setError(null);
     try {
-      // First, get all user profiles
+      // First, get all user profiles from the backend
+      console.info('Members: fetching /api/profile/all');
       const response = await api.profile.getAllProfiles();
-      
-      if (response.success && Array.isArray(response.data)) {
-        const membersData = response.data.map(user => {
+      console.info('Members: API response', response);
+
+      const profiles = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      if ((response.success === true || Array.isArray(response)) && Array.isArray(profiles)) {
+        const membersData = profiles.map(user => {
           const profilePicture = user.profile_picture
             ? `${api.uploadBaseUrl}/uploads/profile-pictures/${user.profile_picture}`
             : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
 
           return {
             id: user.id,
-            fullName: user.full_name || `${user.first_name || ''} ${user.surname || ''}`.trim() || 'Anonymous Member',
-            profession: user.profession || 'Not specified',
+            fullName: user.full_name || `${user.first_name || user.username || ''} ${user.surname || ''}`.trim() || user.email || 'Anonymous Member',
+            profession: user.title || user.profession || user.specialization || 'Not specified',
             location: user.location || 'Location not set',
             bio: user.bio || 'No bio provided yet',
             profilePicture,
@@ -71,6 +78,7 @@ const Members = () => {
           };
         });
 
+        console.info('Members: loaded', membersData.length, membersData[0] || {});
         setMembers(membersData);
       } else {
         throw new Error(response.error || 'Failed to fetch members');
@@ -85,39 +93,7 @@ const Members = () => {
     }
   };
 
-  // If your API doesn't have a getAll endpoint yet, use this fallback approach:
-  const fetchMembersFallback = async () => {
-    setLoading(true);
-    try {
-      // Get current user's profile first to test connection
-      const currentUser = await api.profile.getProfile();
-      
-      // Since we don't have a getAll endpoint, we'll show current user + empty state
-      if (currentUser.success) {
-        const user = currentUser.data;
-        setMembers([{
-          id: user.id,
-          fullName: `${user.first_name || ''} ${user.surname || ''}`.trim() || 'You',
-          profession: user.profession || 'Not specified',
-          location: user.location || 'Location not set',
-          bio: user.bio || 'No bio provided yet',
-          profilePicture: user.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
-          email: user.email || '',
-          phone: user.phone || '',
-          linkedin: user.linkedin || '',
-          website: user.website || '',
-          skills: user.skills ? JSON.parse(user.skills) : [],
-          joinedDate: user.created_at || new Date().toISOString(),
-          isOnline: user.is_online || false
-        }]);
-      }
-    } catch (err) {
-      console.error('Error in fallback fetch:', err);
-      setError('Member directory feature is coming soon. Please check back later.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Filter and sort members
   const filteredMembers = members
@@ -189,23 +165,27 @@ const Members = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
-        <div className="max-w-md text-center">
-          <div className="text-6xl mb-6">👥</div>
-          <h2 className="text-2xl font-bold text-[#0B1A33] mb-3">Member Directory Coming Soon</h2>
+        <div className="max-w-md text-center bg-white rounded-3xl shadow-xl border border-gray-200 p-8">
+          <div className="text-6xl mb-6">⚠️</div>
+          <h2 className="text-2xl font-bold text-[#0B1A33] mb-3">Unable to Load Members</h2>
           <p className="text-gray-600 mb-6">
-            The member directory feature is currently being developed. Check back soon to connect with other community members!
+            {error}
           </p>
           <div className="space-y-4">
-            <Link
-              to="/profile/edit"
+            <button
+              onClick={fetchMembers}
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#E4B84D] to-[#FFD166] text-[#0B1A33] font-bold rounded-xl hover:shadow-lg transition-all"
             >
+              <FaSpinner className="animate-spin" />
+              Retry Loading Members
+            </button>
+            <Link
+              to="/profile/edit"
+              className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all"
+            >
               <FaEdit />
-              Complete Your Profile First
+              Edit Your Profile
             </Link>
-            <p className="text-sm text-gray-500 mt-4">
-              Complete your profile to be ready when the directory launches!
-            </p>
           </div>
         </div>
       </div>
@@ -430,11 +410,11 @@ const Members = () => {
               <FaUsers className="text-4xl text-gray-400" />
             </div>
             <h3 className="text-2xl font-semibold text-gray-700 mb-3">
-              {members.length === 0 ? 'No Members Available Yet' : 'No Members Found'}
+              {members.length === 0 ? 'No members have joined yet' : 'No members found'}
             </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-6">
               {members.length === 0 
-                ? 'Be the first to create a profile and connect with future members!' 
+                ? 'Be the first to create a profile and connect with the community.' 
                 : 'No members match your search criteria. Try adjusting your filters.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

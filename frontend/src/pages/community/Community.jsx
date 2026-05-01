@@ -87,43 +87,10 @@ const Community = () => {
     } catch (error) {
       console.error('Failed to fetch posts:', error);
       setError("Failed to load community posts. Please try again.");
-      // Fallback to mock data if API fails
-      setPosts(getMockPosts());
+      setPosts([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Mock data fallback
-  const getMockPosts = () => {
-    return [
-      {
-        id: 1,
-        title: "Annual Ojoto Union Picnic 2024 - Save the Date!",
-        content: "Mark your calendars! Our annual community picnic will be held on July 20th at Central Park. Family-friendly event with food, games, and cultural activities.",
-        author: "Chinwe Okafor",
-        authorRole: "Event Coordinator",
-        authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chinwe",
-        category: "events",
-        created_at: "2024-12-10T14:30:00",
-        is_pinned: true,
-        likes: 24,
-        comments: []
-      },
-      {
-        id: 2,
-        title: "Looking for Housing Assistance in Toronto",
-        content: "Moving to Toronto next month and looking for temporary accommodation. Any recommendations for short-term rentals or community members who can help?",
-        author: "Tunde Adeyemi",
-        authorRole: "Member",
-        authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tunde",
-        category: "help",
-        created_at: "2024-12-09T11:20:00",
-        is_pinned: false,
-        likes: 15,
-        comments: []
-      }
-    ];
   };
 
   const filteredPosts = posts.filter(post => {

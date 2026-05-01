@@ -211,8 +211,76 @@ async function createIndexes() {
   console.log('✅ Indexes created');
 }
 
+async function syncUserStats() {
+  console.log('🔄 Syncing user_stats rows for existing users...');
+  try {
+    await pool.query(`
+      INSERT INTO user_stats (user_id)
+      SELECT u.id
+      FROM users u
+      WHERE NOT EXISTS (
+        SELECT 1 FROM user_stats us WHERE us.user_id = u.id
+      )
+    `);
+
+    await pool.query(`
+      WITH counts AS (
+        SELECT
+          u.id AS user_id,
+          COALESCE(p.post_count, 0) AS posts_count,
+          COALESCE(c.comment_count, 0) AS comments_count,
+          COALESCE(q.question_count, 0) AS questions_count,
+          COALESCE(a.answer_count, 0) AS answers_count,
+          COALESCE(conn.connection_count, 0) AS connections_count,
+          COALESCE(vs.event_count, 0) AS events_attended
+        FROM users u
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS post_count FROM community_posts GROUP BY user_id
+        ) p ON p.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS comment_count FROM comments GROUP BY user_id
+        ) c ON c.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS question_count FROM questions GROUP BY user_id
+        ) q ON q.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS answer_count FROM answers GROUP BY user_id
+        ) a ON a.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, SUM(connection_count) AS connection_count
+          FROM (
+            SELECT user1_id AS user_id, COUNT(*) AS connection_count FROM connections GROUP BY user1_id
+            UNION ALL
+            SELECT user2_id AS user_id, COUNT(*) AS connection_count FROM connections GROUP BY user2_id
+          ) aggregated
+          GROUP BY user_id
+        ) conn ON conn.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, COUNT(*) AS event_count FROM volunteer_signups GROUP BY user_id
+        ) vs ON vs.user_id = u.id
+      )
+      UPDATE user_stats us
+      SET
+        posts_count = counts.posts_count,
+        comments_count = counts.comments_count,
+        questions_count = counts.questions_count,
+        answers_count = counts.answers_count,
+        connections_count = counts.connections_count,
+        events_attended = counts.events_attended
+      FROM counts
+      WHERE us.user_id = counts.user_id;
+    `);
+
+    console.log('✅ user_stats synced successfully');
+  } catch (err) {
+    console.error('❌ Failed to sync user_stats:', err.message);
+  }
+}
+
 // Run initialization (only once on startup)
-initializeTables().catch(console.error);
+initializeTables().catch(console.error).finally(() => {
+  syncUserStats().catch(console.error);
+});
 
 // Export pool and helper for queries
 module.exports = {

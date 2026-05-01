@@ -17,6 +17,7 @@ const communityRoutes = require('./routes/communityRoutes');
 const qandaRoutes = require('./routes/qandaRoutes');
 const uploadRoutes = require('./routes/upload');
 const volunteerRoutes = require('./routes/volunteerRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 // ========================
 // SECTION 2: APP SETUP
@@ -56,7 +57,8 @@ app.get('/', (req, res) => {
       users: 'GET /api/users',
       auth_test: 'GET /api/auth/test',
       register: 'POST /api/auth/register',
-      login: 'POST /api/auth/login'
+      login: 'POST /api/auth/login',
+      dashboard_stats: 'GET /api/dashboard/stats'
     }
   });
 });
@@ -161,7 +163,8 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// Community & Q&A routes
+// Dashboard, Community & Q&A routes
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/qanda', qandaRoutes);
 app.use('/api/volunteer', volunteerRoutes);
